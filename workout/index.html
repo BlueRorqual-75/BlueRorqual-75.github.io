@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#07090c" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
-<title>맨몸 체력운동 5종</title>
+<title>홈트 루틴 5종 — 기본 체력 · 스탠딩 뱃살</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%92%AA%3C/text%3E%3C/svg%3E" />
 <style>
   :root{
@@ -74,6 +74,29 @@
     background:var(--btn); border:1px solid var(--line);
   }
   .iconbtn:active{ background:var(--btn-hi); }
+
+  /* ── routine tabs ── */
+  .tabs{
+    flex:0 0 auto; display:flex; gap:7px;
+    padding:0 2px 8px;
+  }
+  .tab{
+    flex:1 1 0; min-width:0;
+    display:flex; align-items:center; justify-content:center; gap:5px;
+    padding:9px 6px; border-radius:13px;
+    background:var(--panel); border:1px solid var(--line);
+    color:var(--dim); font-size:12.5px; font-weight:800; letter-spacing:-.01em;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .tab .ic{ font-size:13.5px; line-height:1; }
+  .tab.on{
+    color:var(--accent);
+    border-color:rgba(59,224,140,.45);
+    background:var(--accent-dim);
+    box-shadow:0 4px 16px rgba(59,224,140,.10);
+  }
+  .tab.on.st{ color:#ff8a5b; border-color:rgba(255,120,60,.45); background:rgba(255,120,60,.14); box-shadow:0 4px 16px rgba(255,120,60,.10); }
+  body.running .tabs{ display:none; }
 
   /* ── stage ── */
   .stage-wrap{ flex:0 0 auto; }
@@ -239,12 +262,17 @@
 
 <div id="app">
   <header class="bar">
-    <div class="brand">💪 맨몸 체력운동 5종</div>
+    <div class="brand" id="brand">🏋️ 홈트 루틴</div>
     <div class="bar-actions">
       <span class="chip" id="wakeChip">화면 유지</span>
       <button class="iconbtn" id="soundBtn" type="button" aria-label="소리 켜기/끄기">🔊</button>
     </div>
   </header>
+
+  <nav class="tabs" id="routineTabs" aria-label="운동 루틴 선택">
+    <button class="tab on" id="tabBasic" type="button" data-routine="basic" aria-pressed="true"><span class="ic">💪</span>기본 체력 5종</button>
+    <button class="tab st" id="tabStanding" type="button" data-routine="standing" aria-pressed="false"><span class="ic">🔥</span>스탠딩 뱃살 5종</button>
+  </nav>
 
   <section class="stage-wrap">
     <div class="stage" id="stage">
@@ -304,13 +332,22 @@
 (function(){
 'use strict';
 
-/* ══════════ 운동 데이터 ══════════ */
-var EX = [
-  { id:'squat',  name:'스쿼트',       en:'Squat',             muscle:'하체·코어',   tip:'발 어깨너비, 엉덩이를 뒤로 빼며 앉으세요',                          def:40, cycle:2.0 },
-  { id:'pushup', name:'푸시업',       en:'Push-up',           muscle:'가슴·팔·어깨', tip:'몸을 일직선으로 유지하세요 (힘들면 무릎 대고 진행)',                  def:30, cycle:2.0 },
-  { id:'plank',  name:'플랭크',       en:'Plank',             muscle:'코어·허리',   tip:'팔꿈치로 버티며 배·엉덩이에 힘, 허리가 꺾이지 않게 하세요',            def:40, cycle:3.2 },
-  { id:'lunge',  name:'런지',         en:'Alternating Lunge', muscle:'하체 균형·둔근', tip:'번갈아 한 발 앞으로 내딛고 앞 무릎이 90도가 되게 하세요',            def:40, cycle:3.6 },
-  { id:'jacks',  name:'팔벌려뛰기',   en:'Jumping Jacks',     muscle:'전신 유산소', tip:'리듬감 있게 팔·다리를 벌리세요 (무릎 부담 시 한 발씩 옆으로 스텝)',     def:45, cycle:1.3 }
+/* ══════════ 운동 데이터 — 루틴 2종 × 5가지 ══════════ */
+var ROUTINES = [
+  { id:'basic', name:'기본 체력 5종', icon:'💪', ex:[
+    { id:'squat',  name:'스쿼트',       en:'Squat',             muscle:'하체·코어',   tip:'발 어깨너비, 엉덩이를 뒤로 빼며 앉으세요',                          def:40, cycle:2.0 },
+    { id:'pushup', name:'푸시업',       en:'Push-up',           muscle:'가슴·팔·어깨', tip:'몸을 일직선으로 유지하세요 (힘들면 무릎 대고 진행)',                  def:30, cycle:2.0 },
+    { id:'plank',  name:'플랭크',       en:'Plank',             muscle:'코어·허리',   tip:'팔꿈치로 버티며 배·엉덩이에 힘, 허리가 꺾이지 않게 하세요',            def:40, cycle:3.2 },
+    { id:'lunge',  name:'런지',         en:'Alternating Lunge', muscle:'하체 균형·둔근', tip:'번갈아 한 발 앞으로 내딛고 앞 무릎이 90도가 되게 하세요',            def:40, cycle:3.6 },
+    { id:'jacks',  name:'팔벌려뛰기',   en:'Jumping Jacks',     muscle:'전신 유산소', tip:'리듬감 있게 팔·다리를 벌리세요 (무릎 부담 시 한 발씩 옆으로 스텝)',     def:45, cycle:1.3 }
+  ]},
+  { id:'standing', name:'스탠딩 뱃살 5종', icon:'🔥', ex:[
+    { id:'kniup',   name:'스탠딩 니업 언더클랩', en:'', muscle:'아랫배', tip:'무릎을 가슴 높이로 번갈아 들며, 무릎 아래에서 양손을 마주쳐 박수',   def:40, cycle:1.7 },
+    { id:'bicycle', name:'스탠딩 바이시클 크런치', en:'', muscle:'옆구리', tip:'손은 머리 뒤, 몸통을 비틀어 팔꿈치와 반대쪽 무릎을 가까이 붙이세요', def:40, cycle:1.9 },
+    { id:'ovknee',  name:'스탠딩 오버헤드 암 다운 니업', en:'', muscle:'윗배', tip:'머리 위 깍지 낀 손을 무릎 쪽으로 내려 터치하고 다시 올리세요',   def:40, cycle:1.9 },
+    { id:'toetouch',name:'스탠딩 토 터치', en:'', muscle:'전신·하체·코어', tip:'다리를 앞위로 쭉 펴 차올려 반대 손으로 발끝을 터치하세요',      def:40, cycle:1.9 },
+    { id:'sidebend',name:'스탠딩 맨몸 사이드 밴드', en:'', muscle:'허리·측면 복사근', tip:'한 손은 골반, 반대팔은 머리 위로 넘겨 옆구리를 길게 늘여주세요', def:40, cycle:2.6 }
+  ]}
 ];
 var REST_DEF = 15, REST_MIN = 5, REST_MAX = 60;
 var EX_MIN = 10, EX_MAX = 120, EX_STEP = 5;
@@ -462,6 +499,219 @@ POSES.jacks = function(u){
   };
 };
 
+/* ══════════ 스탠딩 뱃살 5종 포즈 (2분절 IK, 정면·사선·측면) ══════════ */
+function sMix(a,b,t){ return a+(b-a)*t; }
+function sClamp(v,lo,hi){ return Math.max(lo, Math.min(hi, v)); }
+function sArm(sh, target, pick){                 /* 팔 IK: 관절 길이를 넘지 않게 손을 FK로 확정 */
+  var dx=target.x-sh.x, dy=target.y-sh.y, d=Math.sqrt(dx*dx+dy*dy)||1e-6;
+  var lo=Math.abs(L.upper-L.fore)+0.4, hi=L.upper+L.fore-0.4;
+  var dd=sClamp(d, lo, hi);
+  var A=(L.upper*L.upper - L.fore*L.fore + dd*dd)/(2*dd);
+  var h=Math.sqrt(Math.max(0,L.upper*L.upper-A*A));
+  var ux=dx/d, uy=dy/d, px=sh.x+ux*A, py=sh.y+uy*A;
+  var c1={x:px+uy*h,y:py-ux*h}, c2={x:px-uy*h,y:py+ux*h};
+  var k=pick.charAt(0), sg=(pick.charAt(1)==='+')?1:-1;
+  var elb=(k==='x') ? (c1.x*sg>c2.x*sg?c1:c2) : (c1.y*sg>c2.y*sg?c1:c2);
+  var ex=target.x-elb.x, ey=target.y-elb.y, ed=Math.sqrt(ex*ex+ey*ey)||1e-6;
+  return {elbow:elb, hand:{x:elb.x+ex/ed*L.fore, y:elb.y+ey/ed*L.fore}};
+}
+function sLeg(hip, target, pick){                /* 다리 IK: 골반→발목 */
+  var dx=target.x-hip.x, dy=target.y-hip.y, d=Math.sqrt(dx*dx+dy*dy)||1e-6;
+  var lo=Math.abs(L.thigh-L.shin)+0.4, hi=L.thigh+L.shin-0.4;
+  var dd=sClamp(d, lo, hi);
+  var A=(L.thigh*L.thigh - L.shin*L.shin + dd*dd)/(2*dd);
+  var h=Math.sqrt(Math.max(0,L.thigh*L.thigh-A*A));
+  var ux=dx/d, uy=dy/d, px=hip.x+ux*A, py=hip.y+uy*A;
+  var c1={x:px+uy*h,y:py-ux*h}, c2={x:px-uy*h,y:py+ux*h};
+  var k=pick.charAt(0), sg=(pick.charAt(1)==='+')?1:-1;
+  var kn=(k==='x') ? (c1.x*sg>c2.x*sg?c1:c2) : (c1.y*sg>c2.y*sg?c1:c2);
+  var ex=target.x-kn.x, ey=target.y-kn.y, ed=Math.sqrt(ex*ex+ey*ey)||1e-6;
+  return {knee:kn, ankle:{x:kn.x+ex/ed*L.shin, y:kn.y+ey/ed*L.shin}};
+}
+function sKneeLeg(side, lift, out, kneeH, shinOut){   /* 서 있는 자세 ↔ 무릎 든 자세 보간 */
+  var hipX = 200 + side*7;
+  var upKn = {x: 200 + side*out, y: 146 - kneeH*lift};
+  var upAk = {x: upKn.x + side*shinOut, y: upKn.y + L.shin - 6*lift};
+  return {a:{x:hipX, y:146},
+          b:{x:sMix(200+side*11, upKn.x, lift), y:sMix(198, upKn.y, lift)},
+          c:{x:sMix(200+side*17, upAk.x, lift), y:sMix(G, upAk.y, lift)},
+          foot:{x:sMix(200+side*17+11, upAk.x - side*2, lift), y:sMix(G, upAk.y + 11, lift)},
+          upKn:upKn, upAk:upAk};
+}
+var SPOSES = {};
+/* 1. 스탠딩 니업 언더클랩 (정면) — 무릎을 번갈아 가슴 높이로, 무릎 아래에서 양손 박수 */
+SPOSES.kniup = function(u){
+  var half=(u*2)%1, right = u<0.5;
+  var lift = smooth(Math.min(1,half/0.30)) * smooth(Math.min(1,(1-half)/0.26));
+  var hip={x:200,y:146}, sh={x:200,y:84}, head={x:200,y:55};
+  var legs=[], near=null, far=null;
+  [1,-1].forEach(function(side){
+    var isUp = ((side===1)===right) ? lift : 0;
+    var lg = sKneeLeg(side, isUp, 24, 46, 16);
+    lg.far = side===-1;
+    if(side===-1) far=lg; else near=lg;
+    legs.push(lg);
+  });
+  var kn = right ? near : far, sgn = right ? 1 : -1;
+  var clap = {x: kn.upKn.x - sgn*26, y: kn.upKn.y + 54};
+  var arms=[], hands=[];
+  [1,-1].forEach(function(side){
+    var s={x:200+side*19,y:88};
+    var rest={x:200+side*13,y:166};
+    var t={x:sMix(rest.x,clap.x,lift), y:sMix(rest.y,clap.y,lift)};
+    var r=sArm(s,t, side===1?'x+':'x-');
+    arms.push({a:s,b:r.elbow,c:r.hand,far:side===-1});
+    hands.push({x:r.hand.x + (side===-1? -3:3), y:r.hand.y + (side===-1? 4:-4), far:side===-1});
+  });
+  return {head:head, torso:[hip,sh], legs:[
+            {a:far.a,b:far.b,c:far.c,far:true},{a:near.a,b:near.b,c:near.c}],
+          arms:[{a:arms[1].a,b:arms[1].b,c:arms[1].c,far:true},{a:arms[0].a,b:arms[0].b,c:arms[0].c}],
+          hands:[{x:hands[1].x,y:hands[1].y,far:true},{x:hands[0].x,y:hands[0].y}],
+          feet:[{a:far.c,b:far.foot,far:true},{a:near.c,b:near.foot}]};
+};
+
+/* 2. 스탠딩 바이시클 크런치 (정면·비틀기) — 손은 머리 뒤, 상체를 무릎 쪽으로 비틀며 무릎을 든다 */
+SPOSES.bicycle = function(u){
+  var half=(u*2)%1, right = u<0.5;
+  var lift = smooth(Math.min(1,half/0.28)) * smooth(Math.min(1,(1-half)/0.24));
+  var sgn = right ? 1 : -1;
+  var hip={x:200,y:146};
+  var lean = -sgn*9*lift;                         /* 무릎 든 쪽으로 몸통을 비틀어 숙임 */
+  var sh=up(hip, lean, L.torso);
+  var head=up(sh, lean+3, 29);
+  var px=Math.cos(lean*DEG), py=Math.sin(lean*DEG);
+  var shR={x:sh.x+px*19, y:sh.y+py*19}, shL={x:sh.x-px*19, y:sh.y-py*19};
+  var legs=[], near=null, far=null;
+  [1,-1].forEach(function(side){
+    var isUp = ((side===1)===right) ? lift : 0;
+    var lg = sKneeLeg(side, isUp, 20, 42, 14);
+    lg.far = side===-1;
+    if(side===-1) far=lg; else near=lg;
+    legs.push(lg);
+  });
+  var arms=[], hands=[];
+  [1,-1].forEach(function(side){
+    var s = side===1 ? shR : shL;
+    var ear = {x: head.x + side*14, y: head.y + 7};
+    var r=sArm(s, ear, side===1?'x+':'x-');
+    arms.push({a:s,b:r.elbow,c:r.hand,far:side===-1});
+    hands.push({x:r.hand.x,y:r.hand.y,far:side===-1});
+  });
+  return {head:head, torso:[hip,sh], legs:[
+            {a:far.a,b:far.b,c:far.c,far:true},{a:near.a,b:near.b,c:near.c}],
+          arms:[{a:arms[1].a,b:arms[1].b,c:arms[1].c,far:true},{a:arms[0].a,b:arms[0].b,c:arms[0].c}],
+          hands:[{x:hands[1].x,y:hands[1].y,far:true},{x:hands[0].x,y:hands[0].y}],
+          feet:[{a:far.c,b:far.foot,far:true},{a:near.c,b:near.foot}]};
+};
+
+/* 3. 스탠딩 오버헤드 암 다운 니업 (정면) — 머리 위 깍지 → 무릎 터치 */
+SPOSES.ovknee = function(u){
+  var half=(u*2)%1, right = u<0.5;
+  var lift = smooth(Math.min(1,half/0.30)) * smooth(Math.min(1,(1-half)/0.26));
+  var hip={x:200,y:146}, sh={x:200,y:84}, head={x:200,y:55};
+  var legs=[], near=null, far=null;
+  [1,-1].forEach(function(side){
+    var isUp = ((side===1)===right) ? lift : 0;
+    var lg = sKneeLeg(side, isUp, 30, 46, 10);
+    lg.far = side===-1;
+    if(side===-1) far=lg; else near=lg;
+    legs.push(lg);
+  });
+  var kn = right ? near : far, sgn = right ? 1 : -1;
+  var arms=[], hands=[];
+  [1,-1].forEach(function(side){
+    var s={x:200+side*19,y:88};
+    var oh={x:200+side*4,y:24};                    // 머리 위 깍지
+    var dn={x:kn.upKn.x - sgn*2 + side*3, y:kn.upKn.y - 6};
+    var t={x:sMix(oh.x,dn.x,lift), y:sMix(oh.y,dn.y,lift)};
+    var r=sArm(s,t, side===1?'x+':'x-');
+    arms.push({a:s,b:r.elbow,c:r.hand,far:side===-1});
+    hands.push({x:r.hand.x,y:r.hand.y,far:side===-1});
+  });
+  return {head:head, torso:[hip,sh], legs:[
+            {a:far.a,b:far.b,c:far.c,far:true},{a:near.a,b:near.b,c:near.c}],
+          arms:[{a:arms[1].a,b:arms[1].b,c:arms[1].c,far:true},{a:arms[0].a,b:arms[0].b,c:arms[0].c}],
+          hands:[{x:hands[1].x,y:hands[1].y,far:true},{x:hands[0].x,y:hands[0].y}],
+          feet:[{a:far.c,b:far.foot,far:true},{a:near.c,b:near.foot}]};
+};
+
+/* 4. 스탠딩 토 터치 (측면) — 다리를 앞위로 차올려 반대 손으로 발끝 터치, 좌우 번갈아 */
+SPOSES.toetouch = function(u){
+  var half=(u*2)%1, right = u<0.5;
+  var k = smooth(Math.min(1,half/0.28)) * smooth(Math.min(1,(1-half)/0.26));
+  var lean = 8 + 24*k;
+  var hip={x:194,y:146};
+  var sh=up(hip, lean, L.torso);
+  var head=up(sh, lean+6, 29);
+  /* 딛는 다리 */
+  var supAnk={x:hip.x-10, y:G};
+  var sup=sLeg({x:hip.x-6,y:hip.y}, supAnk, 'x+');
+  /* 차올리는 다리: 무릎 편 채 앞위로 */
+  var kickAng = 62*DEG;
+  var fx=Math.sin(kickAng), fy=-Math.cos(kickAng);
+  var knF={x:hip.x + fx*L.thigh*k, y:hip.y + fy*L.thigh*k};
+  var akF={x:knF.x + fx*L.shin*k, y:knF.y + fy*L.shin*k};
+  var ak0={x:hip.x+4, y:G}, kn0={x:hip.x+2, y:198};
+  var knE={x:sMix(kn0.x,knF.x,k), y:sMix(kn0.y,knF.y,k)};
+  var akE={x:sMix(ak0.x,akF.x,k), y:sMix(ak0.y,akF.y,k)};
+  var kickNear = right;                                    /* 한 번은 오른발, 다음은 왼발 */
+  var kickLeg = {a:hip, b:knE, c:akE, far:!kickNear};
+  var supLeg  = {a:{x:hip.x-6,y:hip.y}, b:{x:sup.knee.x-5,y:sup.knee.y}, c:{x:supAnk.x-4,y:supAnk.y}, far:kickNear};
+  var shN={x:sh.x+6,y:sh.y+2}, shF={x:sh.x-6,y:sh.y+2};
+  var reach=sArm(shN, {x:akE.x-2, y:akE.y+2}, 'x+');
+  var back =sArm(shF, {x:sh.x-34, y:sh.y-20}, 'x-');
+  return {
+    head:head, torso:[hip,sh],
+    legs:[kickLeg, supLeg],
+    arms:[{a:shF, b:back.elbow, c:back.hand, far:true},
+          {a:shN, b:reach.elbow, c:reach.hand}],
+    hands:[{x:back.hand.x,y:back.hand.y,far:true},{x:reach.hand.x,y:reach.hand.y}],
+    feet:[{a:akE, b:{x:akE.x+4, y:akE.y+9}, far:!kickNear},
+          {a:supLeg.c, b:{x:supLeg.c.x+11,y:G}, far:kickNear}]
+  };
+};
+
+/* 5. 스탠딩 맨몸 사이드 밴드 (정면) — 한 손 골반, 반대팔 머리 위로, 옆구리 숙이기 */
+SPOSES.sidebend = function(u){
+  var half=(u*2)%1, right = u<0.5;
+  var b = smooth(Math.min(1,half/0.30)) * smooth(Math.min(1,(1-half)/0.26));
+  var dir = right ? 1 : -1;
+  var ang = dir*30*b;
+  var hip={x:200,y:146};
+  var sh=up(hip, -ang, L.torso);
+  var head=up(sh, -ang, 29);
+  var legs=[{a:{x:193,y:146}, b:{x:188,y:198}, c:{x:183,y:G}, far:true},
+            {a:{x:207,y:146}, b:{x:212,y:198}, c:{x:217,y:G}}];
+  var px=Math.cos(ang*DEG), py=Math.sin(ang*DEG);
+  var shR={x:sh.x+px*19, y:sh.y+py*19};
+  var shL={x:sh.x-px*19, y:sh.y-py*19};
+  var arms=[], hands=[];
+  [1,-1].forEach(function(side){
+    var s = side===1 ? shR : shL;
+    var tgt;
+    if(side === dir){
+      tgt = {x: 200 + dir*21, y: 139};                       // 골반에 손
+    } else {
+      var overT={x: head.x + dir*14, y: head.y - 24};
+      var upT  ={x: head.x - dir*12, y: head.y - 36};
+      tgt = {x: sMix(upT.x, overT.x, b), y: sMix(upT.y, overT.y, b)};
+    }
+    var r=sArm(s, tgt, side===1?'x+':'x-');
+    arms.push({a:s,b:r.elbow,c:r.hand,far:side===-1});
+    hands.push({x:r.hand.x,y:r.hand.y,far:side===-1});
+  });
+  return {head:head, torso:[hip,sh], legs:legs,
+    arms:[{a:arms[1].a,b:arms[1].b,c:arms[1].c,far:true},{a:arms[0].a,b:arms[0].b,c:arms[0].c}],
+    hands:[{x:hands[1].x,y:hands[1].y,far:true},{x:hands[0].x,y:hands[0].y}],
+    feet:[{a:{x:183,y:G},b:{x:171,y:G},far:true},{a:{x:217,y:G},b:{x:229,y:G}}]};
+};
+
+POSES.kniup    = SPOSES.kniup;
+POSES.bicycle  = SPOSES.bicycle;
+POSES.ovknee   = SPOSES.ovknee;
+POSES.toetouch = SPOSES.toetouch;
+POSES.sidebend = SPOSES.sidebend;
+
 /* ── 운동별 카메라(자동 피팅) ── */
 function bboxOf(fn){
   var mnx=1e9,mny=1e9,mxx=-1e9,mxy=-1e9;
@@ -483,7 +733,7 @@ function camera(fn, W, Hh, pad){
   return {s:s, tx: W/2 - s*(b.mnx+w/2), ty: Hh/2 - s*(b.mny+h/2), b:b};
 }
 var CAM = {};
-EX.forEach(function(e){ CAM[e.id] = camera(POSES[e.id], 400, 300, 16); });
+ROUTINES.forEach(function(r){ r.ex.forEach(function(e){ CAM[e.id] = camera(POSES[e.id], 400, 300, 16); }); });
 
 /* ── SVG 렌더러: 요소를 한 번 만들고 매 프레임 좌표만 갱신 ── */
 var NS = 'http://www.w3.org/2000/svg';
@@ -567,22 +817,49 @@ function saveJSON(key, v){
   try{ window.localStorage.setItem(key, JSON.stringify(v)); }catch(e){}
 }
 var settings = loadJSON(SET_KEY, null) || {};
-var exSec = EX.map(function(e,i){
-  var v = (settings.ex && typeof settings.ex[i] === 'number') ? settings.ex[i] : e.def;
-  return Math.min(EX_MAX, Math.max(EX_MIN, Math.round(v/EX_STEP)*EX_STEP || e.def));
+var SECS = {}, SEL = {};
+var isArr = function(a){ return Object.prototype.toString.call(a) === '[object Array]'; };
+ROUTINES.forEach(function(r){
+  var src = (settings.exSec && isArr(settings.exSec[r.id])) ? settings.exSec[r.id]
+          : ((r.id === 'basic' && isArr(settings.ex)) ? settings.ex : null);   /* 예전 저장값 호환 */
+  SECS[r.id] = r.ex.map(function(e,i){
+    var v = (src && typeof src[i] === 'number') ? src[i] : e.def;
+    v = isFinite(v) ? v : e.def;
+    return Math.min(EX_MAX, Math.max(EX_MIN, Math.round(v/EX_STEP)*EX_STEP || e.def));
+  });
+  var sel = (settings.sel && isArr(settings.sel) === false && typeof settings.sel[r.id] === 'number') ? settings.sel[r.id]
+          : ((r.id === 'basic' && typeof settings.sel === 'number') ? settings.sel : 0);
+  SEL[r.id] = (sel >= 0 && sel < r.ex.length) ? sel : 0;
 });
+var RI = 0;
+ROUTINES.forEach(function(r,i){ if(r.id === settings.routine) RI = i; });
+var EX = ROUTINES[RI].ex;
+var exSec = SECS[ROUTINES[RI].id];
 var restSec = (typeof settings.rest === 'number') ? Math.min(REST_MAX, Math.max(REST_MIN, settings.rest)) : REST_DEF;
 var setsN = (settings.sets === 2 || settings.sets === 3) ? settings.sets : 1;
 var soundOn = settings.sound !== false;
-var selIdx = (typeof settings.sel === 'number' && settings.sel >= 0 && settings.sel < EX.length) ? settings.sel : 0;
+var selIdx = SEL[ROUTINES[RI].id];
 function saveSettings(){
-  saveJSON(SET_KEY, {ex:exSec, rest:restSec, sets:setsN, sound:soundOn, sel:selIdx});
+  if(ROUTINES[RI]){ SECS[ROUTINES[RI].id] = exSec; SEL[ROUTINES[RI].id] = selIdx; }
+  saveJSON(SET_KEY, {routine:ROUTINES[RI].id, exSec:SECS, sel:SEL, rest:restSec, sets:setsN, sound:soundOn});
 }
-var rec = loadJSON(REC_KEY, null) || {date:todayStr(), sets:0, ex:0};
-if(rec.date !== todayStr()){ rec = {date:todayStr(), sets:0, ex:0}; saveJSON(REC_KEY, rec); }
+function blankRec(){ return {date:todayStr(), byRoutine:{basic:{sets:0,ex:0}, standing:{sets:0,ex:0}}}; }
+function countsFor(bucket){
+  var id = ROUTINES[RI].id;
+  if(!bucket.byRoutine) bucket.byRoutine = {basic:{sets:0,ex:0}, standing:{sets:0,ex:0}};
+  if(!bucket.byRoutine[id]) bucket.byRoutine[id] = {sets:0, ex:0};
+  return bucket.byRoutine[id];
+}
+var rec = loadJSON(REC_KEY, null);
+if(!rec) rec = blankRec();
+if(typeof rec.sets === 'number' && !rec.byRoutine){          /* 예전 기록 호환 */
+  rec = {date:rec.date, byRoutine:{basic:{sets:rec.sets||0, ex:rec.ex||0}, standing:{sets:0,ex:0}}};
+}
+if(rec.date !== todayStr()){ rec = blankRec(); saveJSON(REC_KEY, rec); }
+var curRec = countsFor(rec);
 function recSave(){ saveJSON(REC_KEY, rec); }
 function recCheckMidnight(){
-  if(rec.date !== todayStr()){ rec = {date:todayStr(), sets:0, ex:0}; recSave(); renderRec(); }
+  if(rec.date !== todayStr()){ rec = blankRec(); curRec = countsFor(rec); recSave(); renderRec(); }
 }
 
 /* ══════════ 오디오 (Web Audio API) ══════════ */
@@ -706,8 +983,8 @@ function advance(){
   /* 종료 처리: 방금 끝난 항목 기록 */
   var cur = state.queue[state.qi];
   if(cur && cur.type === 'ex'){
-    rec.ex++; 
-    if(cur.lastOfSet) rec.sets++;
+    curRec.ex++;
+    if(cur.lastOfSet) curRec.sets++;
     recSave(); renderRec();
     if(!cur.single && cur.lastOfSet && cur.set < setsN) toast(cur.set + '세트 완료! 조금만 쉬고 ' + (cur.set+1) + '세트째 가요 💪');
   }
@@ -721,18 +998,19 @@ function finishSession(){
   syncPhaseClass();
   phaseLabel.textContent = '완료';
   bigNum.textContent = '💪';
-  subLabel.textContent = '오늘 ' + rec.sets + '세트 · ' + rec.ex + '개 운동 완료';
+  subLabel.textContent = '오늘 ' + curRec.sets + '세트 · ' + curRec.ex + '개 운동 완료';
   ringSet(1);
   exTitle.textContent = '수고했어요!';
   exMuscle.textContent = '';
-  exTip.textContent = '맨몸 운동 5종을 끝냈습니다. 물 한 잔하고 가볍게 몸을 풀어주세요.';
+  exTip.textContent = ROUTINES[RI].name + '을 끝냈습니다. 물 한 잔하고 가볍게 몸을 풀어주세요.';
   stageTag.textContent = '완료';
   stageTag.classList.remove('rest');
   startBtn.classList.remove('pause');
   startBtn.textContent = '▶ 다시 시작';
   skipBtn.disabled = true;
   wakeRelease();
-  toast('운동 완료! 오늘 ' + rec.sets + '세트 · ' + rec.ex + '개 운동 💪');
+  toast('운동 완료! 오늘 ' + curRec.sets + '세트 · ' + curRec.ex + '개 운동 💪');
+  document.body.classList.remove('running');
   renderer.clear();
 }
 function resetAll(){
@@ -861,7 +1139,7 @@ function buildList(){
     row.className = 'exrow' + (i===selIdx?' sel':'');
     var no = document.createElement('span'); no.className='no'; no.textContent = String(i+1);
     var nm = document.createElement('span'); nm.className='nm';
-    var b = document.createElement('b'); b.textContent = e.name + ' (' + e.en + ')';
+    var b = document.createElement('b'); b.textContent = e.name + (e.en ? ' (' + e.en + ')' : '');
     var sp = document.createElement('span'); sp.textContent = e.muscle;
     nm.appendChild(b); nm.appendChild(sp);
     var st = document.createElement('span'); st.className='stepper';
@@ -939,6 +1217,42 @@ function adjustRest(d){
   saveSettings();
 }
 $('restMinus').addEventListener('click', function(){ adjustRest(-5); });
+
+/* ── 루틴 전환 탭 ── */
+function syncTabs(){
+  Array.prototype.forEach.call(document.querySelectorAll('.tab'), function(b){
+    var on = b.getAttribute('data-routine') === ROUTINES[RI].id;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  $('brand').textContent = ROUTINES[RI].icon + ' ' + ROUTINES[RI].name;
+}
+function setRoutine(i){
+  if(typeof i !== 'number' || i < 0 || i >= ROUTINES.length || i === RI) return;
+  if(state.running){ resetAll(); }
+  SECS[ROUTINES[RI].id] = exSec; SEL[ROUTINES[RI].id] = selIdx;
+  RI = i;
+  EX = ROUTINES[RI].ex;
+  exSec = SECS[ROUTINES[RI].id];
+  selIdx = SEL[ROUTINES[RI].id];
+  curRec = countsFor(rec);
+  saveSettings();
+  syncTabs();
+  buildList();
+  renderRec();
+  if(state.mode !== 'idle') resetAll();
+  showExercise(selIdx, 'idle', null);
+  updateIdleRing();
+  syncPhaseClass();
+  toast(ROUTINES[RI].icon + ' ' + ROUTINES[RI].name + ' 루틴으로 바꿨어요');
+}
+Array.prototype.forEach.call(document.querySelectorAll('.tab'), function(b){
+  b.addEventListener('click', function(){
+    var id = b.getAttribute('data-routine'), idx = 0;
+    ROUTINES.forEach(function(r,i){ if(r.id === id) idx = i; });
+    setRoutine(idx);
+  });
+});
 $('restPlus').addEventListener('click', function(){ adjustRest(+5); });
 
 var toastTimer = null;
@@ -949,7 +1263,8 @@ function toast(msg){
   toastTimer = setTimeout(function(){ toastEl.classList.remove('show'); }, 2600);
 }
 function renderRec(){
-  todayRec.innerHTML = '오늘 기록 — <b>' + rec.sets + '세트</b> · <b>' + rec.ex + '개 운동</b> 완료' + (rec.sets + rec.ex > 0 ? ' 💪' : '');
+  curRec = countsFor(rec);
+  todayRec.innerHTML = ROUTINES[RI].icon + ' ' + ROUTINES[RI].name + ' 오늘 기록 — <b>' + curRec.sets + '세트</b> · <b>' + curRec.ex + '개 운동</b> 완료' + (curRec.sets + curRec.ex > 0 ? ' 💪' : '');
 }
 function midnightTick(){ setInterval(recCheckMidnight, 30000); }
 
@@ -957,6 +1272,7 @@ function midnightTick(){ setInterval(recCheckMidnight, 30000); }
 soundBtn.textContent = soundOn ? '🔊' : '🔇';
 restVal.textContent = restSec + '초';
 syncSetBtns();
+syncTabs();
 buildList();
 renderRec();
 wakeChipSync();
@@ -968,10 +1284,17 @@ midnightTick();
 
 /* 테스트·디버깅 훅 (값 참조용) */
 window.__app = {
-  state: state, EX: EX, exSec: exSec, restSec: function(){ return restSec; },
-  buildQueue: buildQueue, POSES: POSES, CAM: CAM,
+  state: state, POSES: POSES, CAM: CAM, routines: ROUTINES,
+  routineId: function(){ return ROUTINES[RI].id; },
+  ri: function(){ return RI; },
+  EX: function(){ return EX; },
+  exSec: function(){ return exSec; },
+  restSec: function(){ return restSec; },
+  buildQueue: buildQueue,
   rec: function(){ return rec; },
+  curRec: function(){ return curRec; },
   selectEx: selectEx, adjustEx: adjustEx, adjustRest: adjustRest,
+  setRoutine: setRoutine,
   startSession: startSession, skip: function(){ advance(); }, resetAll: resetAll
 };
 })();
