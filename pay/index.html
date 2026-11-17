@@ -1,0 +1,1471 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f5f6f8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>일당 계산기</title>
+<style>
+  :root{
+    --bg:#f5f6f8;
+    --card:#ffffff;
+    --line:#e5e8ee;
+    --text:#1b1f27;
+    --sub:#6b7480;
+    --accent:#2563eb;
+    --sun:#e5484d;
+    --sat:#2f6fed;
+    --cellbg:#f7f8fa;
+    --hasbg:#eaf0ff;
+    --selbg:#dfe8ff;
+    --chipbg:#f0f2f6;
+    --inputbg:#fafbfc;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0f1216;
+      --card:#171b21;
+      --line:#282e37;
+      --text:#eaeef4;
+      --sub:#96a0ae;
+      --accent:#6b9bff;
+      --sun:#ff6b70;
+      --sat:#7aa8ff;
+      --cellbg:#1b2028;
+      --hasbg:#1c2740;
+      --selbg:#25334f;
+      --chipbg:#222832;
+      --inputbg:#1b2028;
+    }
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif;
+    background:var(--bg);color:var(--text);
+    -webkit-text-size-adjust:100%;
+    height:100dvh;height:100vh;
+    overflow:hidden;
+    display:flex;flex-direction:column;
+    line-height:1.3;
+  }
+  @supports (height:100dvh){ body{height:100dvh} }
+
+  /* ---------------- 헤더 (콤팩트) ---------------- */
+  .hdr{flex:none;background:var(--card);border-bottom:1px solid var(--line);
+    padding:calc(6px + env(safe-area-inset-top)) 8px 6px}
+  .hrow{display:flex;align-items:center;gap:5px}
+  .hrow + .hrow{margin-top:5px}
+
+  .navbtn{width:32px;height:32px;flex:none;border-radius:9px;border:1px solid var(--line);background:var(--card);
+    color:var(--text);font-size:18px;line-height:1;display:grid;place-items:center;cursor:pointer;padding:0;font-family:inherit}
+  .navbtn:active{background:var(--chipbg)}
+  .mtitle{flex:1;text-align:center;font-size:15px;font-weight:800;letter-spacing:-0.02em;
+    font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+  .todaybtn{border:1px solid var(--line);background:var(--card);color:var(--accent);font-size:11.5px;font-weight:700;
+    padding:7px 9px;border-radius:9px;cursor:pointer;font-family:inherit;flex:none}
+  .todaybtn:active{background:var(--chipbg)}
+  .csvbtn{border:1px solid var(--line);background:var(--card);color:var(--text);font-size:11px;font-weight:700;
+    padding:7px 8px;border-radius:9px;cursor:pointer;font-family:inherit;flex:none;white-space:nowrap}
+  .csvbtn:active{background:var(--chipbg)}
+
+  .sum{flex:1;min-width:0;display:flex;align-items:baseline;gap:4px;flex-wrap:wrap;
+    font-size:12px;color:var(--sub);font-weight:600;font-variant-numeric:tabular-nums}
+  .sum b{font-size:15px;font-weight:800;color:var(--text);letter-spacing:-0.02em}
+  .sum .dim{color:var(--sub);opacity:.7}
+  .taxmini{display:flex;align-items:center;gap:3px;font-size:10.5px;color:var(--sub);font-weight:700;
+    cursor:pointer;user-select:none;border:1px solid var(--line);border-radius:7px;padding:3px 5px;white-space:nowrap}
+  .taxmini input{width:12px;height:12px;accent-color:var(--accent);margin:0}
+  .taxmini.on{border-color:var(--accent);color:var(--accent);background:var(--hasbg)}
+
+  .wxctl{flex:none;display:flex;align-items:center;gap:4px}
+  #locSel{border:1px solid var(--line);background:var(--card);color:var(--text);font-size:11px;font-weight:700;
+    border-radius:8px;padding:6px 4px;font-family:inherit;max-width:96px}
+  .iconbtn{width:30px;height:29px;border:1px solid var(--line);background:var(--card);color:var(--accent);
+    font-size:14px;line-height:1;border-radius:8px;cursor:pointer;font-family:inherit;padding:0}
+  .iconbtn:active{background:var(--chipbg)}
+  .iconbtn:disabled{opacity:.45}
+  .wxline{font-size:10px;color:var(--sub);font-weight:600;margin-top:4px;padding-left:2px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .wxline.fail{color:#b45309}
+  .warn{display:none;font-size:10.5px;color:#b45309;background:#fff7ed;border:1px solid #fed7aa;
+    border-radius:8px;padding:6px 8px;margin-top:4px}
+  .warn.show{display:block}
+  @media (prefers-color-scheme: dark){ .warn{background:#2a2114;border-color:#5b431d;color:#fbbf24} }
+
+  /* ---------------- 달력 (전체 화면) ---------------- */
+  .cal{flex:1;min-height:0;display:flex;flex-direction:column;padding:2px 5px 4px}
+  .ftr{flex:none;background:var(--card);border-top:1px solid var(--line);
+    padding:8px 12px calc(8px + env(safe-area-inset-bottom));
+    display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-variant-numeric:tabular-nums}
+  .ftr-l{display:flex;align-items:baseline;gap:6px;min-width:0;flex-wrap:wrap}
+  .flbl{font-size:13px;font-weight:800;color:var(--text)}
+  .fsub{font-size:11.5px;font-weight:600;color:var(--sub)}
+  .ftr-r{display:flex;align-items:baseline;gap:6px;flex:none}
+  .ftot{font-size:19px;font-weight:900;color:var(--accent);letter-spacing:-0.02em}
+  .fnet{font-size:11.5px;font-weight:700;color:var(--sub)}
+  .wdays{flex:none;display:grid;grid-template-columns:repeat(7,1fr);text-align:center;
+    font-size:clamp(10px,2.6vw,14px);font-weight:800;color:var(--sub);padding:3px 0 5px}
+  .wdays .sun{color:var(--sun)}
+  .wdays .sat{color:var(--sat)}
+
+  .grid{flex:1;min-height:0;display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:1fr;gap:3px}
+  .cell{position:relative;min-height:0;min-width:0;border:1px solid var(--line);border-radius:9px;
+    background:var(--cellbg);display:flex;flex-direction:column;align-items:stretch;
+    padding:clamp(2px,1vw,6px);font-family:inherit;color:var(--text);cursor:pointer;overflow:hidden;text-align:left}
+  .cell.empty{background:transparent;border-color:transparent;cursor:default}
+  .cell:active{opacity:.72}
+
+  .ctop{display:flex;align-items:center;gap:2px;min-width:0}
+  .dnum{font-size:clamp(12px,3.4vw,22px);font-weight:800;line-height:1.05;letter-spacing:-0.03em;
+    font-variant-numeric:tabular-nums}
+  .mdot{width:clamp(3px,0.9vw,5px);height:clamp(3px,0.9vw,5px);border-radius:50%;background:var(--accent);
+    opacity:.85;flex:none;margin-top:1px}
+  .wxi{margin-left:auto;font-size:clamp(11px,2.9vw,20px);line-height:1;
+    font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif}
+  .wt{display:block;font-size:clamp(8.5px,2.2vw,14px);font-weight:700;color:var(--sub);
+    margin-top:1px;font-variant-numeric:tabular-nums;letter-spacing:-0.04em;white-space:nowrap;overflow:hidden}
+  .wt .tmin{display:none}
+  .wnd{display:flex;align-items:center;gap:1px;font-size:clamp(7.5px,1.95vw,12px);font-weight:700;color:var(--sub);
+    font-variant-numeric:tabular-nums;letter-spacing:-0.05em;white-space:nowrap;overflow:hidden;line-height:1.15}
+  .wnd .wi{font-size:clamp(7.5px,1.85vw,12px);
+    font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif}
+  .wnd.strong{color:#c2410c}
+  .wnd.storm{color:#dc2626;font-weight:800}
+  @media (prefers-color-scheme: dark){
+    .wnd.strong{color:#fb923c}
+    .wnd.storm{color:#f87171}
+  }
+  .amt{margin-top:auto;font-size:clamp(10.5px,3.1vw,24px);font-weight:800;color:var(--accent);
+    letter-spacing:-0.04em;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis;line-height:1.1}
+  .amt.s{font-size:clamp(9px,2.5vw,19px)}
+
+  .cell.sun .dnum{color:var(--sun)}
+  .cell.sat .dnum{color:var(--sat)}
+  .cell.sh-off{background:#e0f2fe;border-color:#bae6fd}
+  .cell.sh-am{background:#fee2e2;border-color:#fecaca}
+  .cell.sh-pm{background:#ffedd5;border-color:#fed7aa}
+  .shb{font-size:clamp(7.5px,1.9vw,11px);font-weight:800;line-height:1.15;padding:1px 3px;border-radius:4px;white-space:nowrap;flex:none}
+  .shb.off{color:#0369a1;background:rgba(14,165,233,0.16)}
+  .shb.am{color:#b91c1c;background:rgba(239,68,68,0.16)}
+  .shb.pm{color:#c2410c;background:rgba(249,115,22,0.18)}
+  @media (prefers-color-scheme: dark){
+    .cell.sh-off{background:#0c2d48;border-color:#075985}
+    .cell.sh-am{background:#3b1518;border-color:#991b1b}
+    .cell.sh-pm{background:#3b210d;border-color:#9a3412}
+    .shb.off{color:#7dd3fc;background:rgba(56,189,248,0.18)}
+    .shb.am{color:#fca5a5;background:rgba(248,113,113,0.18)}
+    .shb.pm{color:#fdba74;background:rgba(251,146,60,0.2)}
+  }
+  .cell.today .dnum{color:#fff;background:var(--accent);border-radius:999px;padding:1px 6px;
+    display:inline-block;line-height:1.25}
+  .cell.today.sun .dnum,.cell.today.sat .dnum{color:#fff}
+  .cell.selected{outline:2.5px solid var(--accent);outline-offset:-2.5px}
+  @media (min-width:700px){
+    .wt .tmin{display:inline}
+    .grid{gap:6px}
+    .cell{border-radius:12px}
+  }
+  @media (min-width:900px){
+    .dnum{font-size:26px}
+    .wxi{font-size:24px}
+    .wt{font-size:16px}
+    .wnd{font-size:13px}
+    .wnd .wi{font-size:13px}
+    .amt{font-size:30px}
+    .amt.s{font-size:24px}
+    .wdays{font-size:16px;padding:5px 0 8px}
+    .mtitle{font-size:18px}
+    .sum{font-size:14px}
+    .sum b{font-size:18px}
+  }
+  @media (max-height:560px){
+    .wnd{display:none}
+    .wt{margin-top:0}
+  }
+
+  /* ---------------- 입력 시트 ---------------- */
+  .backdrop{position:fixed;inset:0;background:rgba(10,14,20,.42);opacity:0;pointer-events:none;
+    transition:opacity .2s ease;z-index:40}
+  .backdrop.show{opacity:1;pointer-events:auto}
+
+  .sheet{position:fixed;left:0;right:0;bottom:0;z-index:50;background:var(--card);
+    border-radius:18px 18px 0 0;border:1px solid var(--line);border-bottom:0;
+    padding:6px 14px calc(14px + env(safe-area-inset-bottom));
+    max-height:90dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+    transform:translateY(102%);transition:transform .24s cubic-bezier(.22,.9,.3,1);
+    box-shadow:0 -8px 30px rgba(10,14,20,.18)}
+  .sheet.open{transform:translateY(0)}
+  .grab{width:38px;height:4px;border-radius:2px;background:var(--line);margin:2px auto 8px}
+
+  .sheet-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+  .pdate{font-size:14px;font-weight:800;letter-spacing:-0.02em}
+  .snav{display:flex;align-items:center;gap:5px}
+  .snav button{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:transparent;
+    color:var(--text);font-size:15px;line-height:1;cursor:pointer;font-family:inherit;padding:0}
+  .snav button:active{background:var(--chipbg)}
+  .closebtn{width:30px;height:30px;border-radius:8px;border:0;background:var(--chipbg);color:var(--sub);
+    font-size:13px;cursor:pointer;font-family:inherit;padding:0;margin-left:2px}
+
+  .wxdaily{font-size:12.5px;font-weight:700;color:var(--text);background:var(--inputbg);
+    border:1px solid var(--line);border-radius:10px;padding:8px 10px;line-height:1.4;margin-bottom:9px;
+    font-variant-numeric:tabular-nums}
+  .wxdaily .sub2{color:var(--sub);font-weight:600}
+
+  .amtrow{display:flex;align-items:center;gap:8px;background:var(--inputbg);border:1px solid var(--line);
+    border-radius:12px;padding:6px 10px}
+  .amtrow:focus-within{border-color:var(--accent)}
+  #amountInput{border:0;background:transparent;outline:none;font-size:23px;font-weight:800;flex:1;min-width:0;
+    color:var(--text);text-align:right;font-variant-numeric:tabular-nums;letter-spacing:-0.03em;
+    padding:3px 0;font-family:inherit}
+  #amountInput::placeholder{color:var(--sub);opacity:.5;font-weight:700}
+  .won{font-size:14px;color:var(--sub);font-weight:700;flex:none}
+  .mini{border:0;background:var(--chipbg);color:var(--sub);font-size:11.5px;font-weight:700;border-radius:8px;
+    padding:7px 9px;cursor:pointer;font-family:inherit;white-space:nowrap;flex:none}
+  .mini:active{opacity:.7}
+  .preview{font-size:11.5px;color:var(--sub);margin-top:6px;min-height:15px;font-weight:600;
+    font-variant-numeric:tabular-nums}
+
+  .quick{display:flex;gap:6px;margin-top:9px}
+  .quick button{flex:1;border:1px solid var(--line);background:transparent;border-radius:10px;padding:10px 2px;
+    font-size:12.5px;font-weight:700;color:var(--text);cursor:pointer;font-family:inherit}
+  .quick button:active{background:var(--chipbg)}
+  .recent{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap;align-items:center}
+  .recent .rlabel{font-size:11px;color:var(--sub);font-weight:600}
+  .recent button{border:0;background:var(--hasbg);color:var(--accent);font-size:11.5px;font-weight:700;
+    border-radius:999px;padding:6px 10px;cursor:pointer;font-family:inherit;font-variant-numeric:tabular-nums}
+  .recent button:active{opacity:.7}
+
+  .wxblock{margin-top:10px;padding-top:9px;border-top:1px dashed var(--line)}
+  .wxhead{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:7px}
+  .wxhead .lbl{font-size:11.5px;color:var(--sub);font-weight:700}
+  .wxauto{font-size:10.5px;color:var(--sub);font-weight:600;text-align:right;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap;max-width:60%}
+  .wxchips{display:flex;gap:5px;flex-wrap:wrap}
+  .wxchips button{border:1px solid var(--line);background:transparent;border-radius:10px;padding:8px 9px;
+    font-size:11.5px;font-weight:700;color:var(--text);cursor:pointer;font-family:inherit;
+    display:flex;align-items:center;gap:3px;line-height:1}
+  .wxchips button .ci{font-size:12.5px;
+    font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif}
+  .wxchips button.on{border-color:var(--accent);background:var(--hasbg);color:var(--accent)}
+  .wxchips button.none{color:var(--sub);font-weight:600}
+  .wxchips button.none.on{border-color:var(--accent);background:var(--hasbg);color:var(--accent)}
+
+  #memoInput{width:100%;margin-top:9px;border:1px solid var(--line);background:var(--inputbg);border-radius:10px;
+    padding:10px 12px;font-size:13px;color:var(--text);outline:none;font-family:inherit}
+  #memoInput:focus{border-color:var(--accent)}
+  .foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:11px}
+  .hint{font-size:11px;color:var(--sub);font-weight:600}
+  .danger{border:1px solid var(--line);background:transparent;color:#e5484d;font-size:12px;font-weight:700;
+    border-radius:9px;padding:8px 11px;cursor:pointer;font-family:inherit;white-space:nowrap}
+  .danger:active{background:var(--chipbg)}
+
+  details.more{margin-top:11px;border-top:1px dashed var(--line);padding-top:2px}
+  details.more summary{list-style:none;cursor:pointer;padding:9px 0 2px;font-size:11.5px;font-weight:700;color:var(--sub)}
+  details.more summary::-webkit-details-marker{display:none}
+  details.more summary::after{content:"▾";float:right;font-size:11px}
+  details.more[open] summary::after{content:"▴"}
+  .more-body{padding:6px 0 2px;display:flex;flex-direction:column;gap:7px}
+  .more-body .row{display:flex;gap:7px}
+  .more-body button{flex:1;min-width:0;border:1px solid var(--line);background:transparent;color:var(--text);
+    border-radius:10px;padding:10px 6px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit}
+  .more-body button:active{background:var(--chipbg)}
+  .more-body .note{font-size:10.5px;color:var(--sub);line-height:1.5}
+  .hide{display:none !important}
+
+  @media (min-width:760px){
+    .sheet{left:50%;right:auto;bottom:auto;top:50%;width:440px;max-height:86vh;border-radius:18px;
+      border-bottom:1px solid var(--line);
+      transform:translate(-50%,-46%) scale(.97);opacity:.6;
+      transition:transform .2s ease,opacity .2s ease}
+    .sheet.open{transform:translate(-50%,-50%) scale(1);opacity:1}
+  }
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hrow">
+    <button class="navbtn" id="prevBtn" type="button" aria-label="이전 달">‹</button>
+    <div class="mtitle" id="monthTitle" title="이번 달로">2026년 11월</div>
+    <button class="navbtn" id="nextBtn" type="button" aria-label="다음 달">›</button>
+    <button class="todaybtn" id="todayBtn" type="button">오늘</button>
+    <button class="csvbtn" id="csvBtn" type="button">CSV</button>
+  </div>
+
+  <div class="hrow">
+    <div class="sum">
+      <b id="totalAmount">0원</b>
+      <span class="dim">·</span><span id="workDays">0일</span>
+      <span class="dim">·</span><span class="dim">평균</span><span id="avgAmount">0원</span>
+      <span class="dim hide" id="netWrap">·</span><span class="hide" id="netLabel">실수령</span><span class="hide" id="netAmount">0원</span>
+    </div>
+    <label class="taxmini" id="taxLabel" for="taxToggle">
+      <input type="checkbox" id="taxToggle"><span>3.3%</span>
+    </label>
+    <div class="wxctl">
+      <select id="locSel" aria-label="날씨 기준 지역">
+        <option value="jeju">제주공항</option>
+        <option value="geo">내 위치</option>
+        <option value="seoul">서울</option>
+      </select>
+      <button class="iconbtn" id="wxRefresh" type="button" aria-label="날씨 새로고침">↻</button>
+    </div>
+  </div>
+
+  <div class="wxline" id="wxStatus">제주공항 기준 날씨를 불러오는 중…</div>
+  <div class="warn" id="storageWarn">이 브라우저에서는 자동 저장이 막혀 있습니다. 시트 아래 “전체 기록 백업”으로 파일을 받아 두세요.</div>
+</header>
+
+<main class="cal" id="calSection">
+  <div class="wdays">
+    <span class="sun">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span class="sat">토</span>
+  </div>
+  <div class="grid" id="grid">
+    <div style="grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;color:var(--sub);font-size:14px;line-height:1.6;">
+      <div style="font-size:32px;margin-bottom:8px;">🌐</div>
+      <div style="font-weight:800;color:var(--text);font-size:16px;margin-bottom:6px;">브라우저(크롬·삼성 인터넷)로 열어주세요</div>
+      <div>앱 내 미리보기 화면에서는 보안상 달력과 버튼 기능이 작동하지 않아요.<br>파일을 저장한 뒤 <b>내 파일 → 다운로드</b>에서 눌러 <b>Chrome</b>이나 <b>삼성 인터넷</b>으로 열면 바로 달력이 꽉 차게 나옵니다!</div>
+    </div>
+  </div>
+</main>
+
+<footer class="ftr" id="bottomBar">
+  <div class="ftr-l">
+    <span class="flbl" id="bottomLabel">11월 합계</span>
+    <span class="fsub" id="bottomSub">0일 · 평균 0원</span>
+  </div>
+  <div class="ftr-r">
+    <span class="fnet hide" id="bottomNet"></span>
+    <b class="ftot" id="bottomTotal">0원</b>
+  </div>
+</footer>
+
+<div class="backdrop" id="backdrop"></div>
+
+<section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="일당 입력">
+  <div class="grab"></div>
+
+  <div class="sheet-head">
+    <div class="pdate" id="panelDate"></div>
+    <div class="snav">
+      <button type="button" id="prevDay" aria-label="이전 날">‹</button>
+      <button type="button" id="nextDay" aria-label="다음 날">›</button>
+      <button type="button" class="closebtn" id="sheetClose" aria-label="닫기">✕</button>
+    </div>
+  </div>
+
+  <div class="wxdaily" id="wxDaily"></div>
+
+  <div class="amtrow">
+    <input id="amountInput" type="text" inputmode="numeric" autocomplete="off" enterkeyhint="done" placeholder="0" aria-label="그날 일당">
+    <span class="won">원</span>
+    <button type="button" class="mini" id="clearAmt">초기화</button>
+  </div>
+  <div class="preview" id="preview"></div>
+
+  <div class="quick">
+    <button type="button" data-add="10000">+1만</button>
+    <button type="button" data-add="50000">+5만</button>
+    <button type="button" data-add="100000">+10만</button>
+  </div>
+
+  <div class="recent hide" id="recent"></div>
+
+  <div class="wxblock">
+    <div class="wxhead">
+      <span class="lbl">실제 작업 날씨 직접 표시</span>
+      <span class="wxauto" id="wxAuto"></span>
+    </div>
+    <div class="wxchips" id="wxChips"></div>
+  </div>
+
+  <input id="memoInput" type="text" maxlength="40" autocomplete="off" placeholder="메모 (선택) 예: 야간, 반차">
+
+  <div class="foot">
+    <span class="hint" id="saveHint">자동 저장됩니다</span>
+    <button type="button" class="danger" id="deleteDay">이 날 지우기</button>
+  </div>
+
+  <details class="more">
+    <summary>내보내기 · 백업</summary>
+    <div class="more-body">
+      <div class="row">
+        <button type="button" id="csvBtn2">이번 달 CSV (엑셀)</button>
+        <button type="button" id="jsonBtn">전체 기록 백업</button>
+      </div>
+      <div class="row">
+        <button type="button" id="importBtn">백업 불러오기</button>
+        <button type="button" id="resetBtn">전체 삭제</button>
+      </div>
+      <input type="file" id="importFile" accept=".json,application/json" class="hide">
+      <div class="note">이 파일 하나만 있으면 인터넷 없이도 열립니다. 기록은 이 브라우저(이 기기)에 저장되니, 기기를 바꾸기 전에 “전체 기록 백업”으로 파일을 받아 두세요. 날씨는 인터넷이 될 때 자동으로 채워지고, 그날 실제 현장 날씨는 직접 고를 수 있습니다.</div>
+    </div>
+  </details>
+</section>
+
+<script>
+(function () {
+  'use strict';
+
+  var LS_KEY = 'dailyWageCalendar.v1';
+  var WD = ['일', '월', '화', '수', '목', '금', '토'];
+  var PLACES = {
+    jeju: { lat: 33.5113, lon: 126.4930, name: '제주공항' },
+    seoul: { lat: 37.5665, lon: 126.9780, name: '서울' },
+    geo: { lat: null, lon: null, name: '내 위치' }
+  };
+  var WX_TTL = 3 * 60 * 60 * 1000;
+
+  var MANUAL = [
+    { id: 'sun', icon: '☀️', name: '맑음' },
+    { id: 'cloud', icon: '⛅', name: '구름' },
+    { id: 'rain', icon: '🌧️', name: '비' },
+    { id: 'snow', icon: '❄️', name: '눈' },
+    { id: 'wind', icon: '🌬️', name: '바람' }
+  ];
+
+  var state = {
+    data: {},
+    recent: [],
+    manual: {},
+    weather: { daily: {}, fetchedAt: 0, lat: null, lon: null, place: '', placeKey: 'jeju' },
+    placeKey: 'jeju',
+    viewY: 2026,
+    viewM: 10,
+    selected: null
+  };
+
+  var el = {};
+  var saveTimer = null;
+  var storageOK = true;
+  var wxBusy = false;
+
+  function $(id) { return document.getElementById(id); }
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  function keyOf(y, m, d) { return y + '-' + pad2(m + 1) + '-' + pad2(d); }
+  function parseKey(k) {
+    if (typeof k !== 'string') { return null; }
+    var p = k.split('-');
+    if (p.length !== 3) { return null; }
+    var y = parseInt(p[0], 10), m = parseInt(p[1], 10) - 1, d = parseInt(p[2], 10);
+    if (!isFinite(y) || !isFinite(m) || !isFinite(d)) { return null; }
+    if (m < 0 || m > 11 || d < 1 || d > 31) { return null; }
+    return { y: y, m: m, d: d };
+  }
+  function won(n) {
+    n = Math.round(n || 0);
+    return n.toLocaleString('ko-KR') + '원';
+  }
+  function today() {
+    var t = new Date();
+    return { y: t.getFullYear(), m: t.getMonth(), d: t.getDate() };
+  }
+  function entryOf(k) {
+    var e = state.data[k];
+    return (e && typeof e === 'object') ? e : null;
+  }
+  function amountOf(k) {
+    var e = entryOf(k);
+    return (e && isFinite(e.a)) ? Math.max(0, Math.round(e.a)) : 0;
+  }
+
+  /* ---------------- 날씨 코드 ---------------- */
+
+  function wmoInfo(code) {
+    if (code === 0) { return { icon: '☀️', name: '맑음' }; }
+    if (code === 1) { return { icon: '🌤️', name: '대체로 맑음' }; }
+    if (code === 2) { return { icon: '⛅', name: '구름 조금' }; }
+    if (code === 3) { return { icon: '☁️', name: '흐림' }; }
+    if (code === 45 || code === 48) { return { icon: '🌫️', name: '안개' }; }
+    if (code >= 51 && code <= 57) { return { icon: '🌦️', name: '이슬비' }; }
+    if (code === 66 || code === 67) { return { icon: '🌧️', name: '어는 비' }; }
+    if (code === 61 || code === 63 || code === 65) { return { icon: '🌧️', name: '비' }; }
+    if (code >= 71 && code <= 77) { return { icon: '❄️', name: '눈' }; }
+    if (code >= 80 && code <= 82) { return { icon: '🌧️', name: '소나기' }; }
+    if (code === 85 || code === 86) { return { icon: '🌨️', name: '눈 소나기' }; }
+    if (code >= 95) { return { icon: '⛈️', name: '천둥번개' }; }
+    return { icon: '🌡️', name: '—' };
+  }
+
+  function manualInfo(id) {
+    var i;
+    for (i = 0; i < MANUAL.length; i += 1) {
+      if (MANUAL[i].id === id) { return MANUAL[i]; }
+    }
+    return null;
+  }
+
+  function weatherFor(k) {
+    var auto = (state.weather && state.weather.daily) ? state.weather.daily[k] : null;
+    var man = manualInfo(state.manual[k]);
+    var w = {
+      tmax: auto ? auto.tmax : null,
+      tmin: auto ? auto.tmin : null,
+      wind: auto ? auto.wind : null,
+      wmax: auto ? auto.wmax : null,
+      gust: auto ? auto.gust : null,
+      manual: false
+    };
+    if (man) {
+      w.icon = man.icon;
+      w.name = man.name;
+      w.manual = true;
+      return w;
+    }
+    if (auto) {
+      w.icon = auto.icon;
+      w.name = auto.name;
+      return w;
+    }
+    return null;
+  }
+
+  function tempText(w) {
+    if (!w) { return ''; }
+    var a = (w.tmax == null) ? '' : Math.round(w.tmax) + '°';
+    var b = (w.tmin == null) ? '' : Math.round(w.tmin) + '°';
+    if (a && b) { return a + '/' + b; }
+    return a || b;
+  }
+
+  function windText(w) {
+    if (!w || w.wind == null) { return ''; }
+    return w.wind.toFixed(1) + 'm/s';
+  }
+
+  function weatherText(k) {
+    var w = weatherFor(k);
+    if (!w) { return ''; }
+    var t = tempText(w);
+    return w.name + (t ? ' ' + t : '') + (w.manual ? ' (직접입력)' : '');
+  }
+
+  /* ---------------- 저장 ---------------- */
+
+  function storageAvailable() {
+    try {
+      var t = '__dw_test__';
+      window.localStorage.setItem(t, '1');
+      window.localStorage.removeItem(t);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function persist() {
+    if (!storageOK) { return; }
+    try {
+      window.localStorage.setItem(LS_KEY, JSON.stringify({
+        v: 1,
+        data: state.data,
+        recent: state.recent,
+        manual: state.manual,
+        weather: state.weather,
+        placeKey: state.placeKey,
+        updated: new Date().toISOString()
+      }));
+      var d = new Date();
+      el.saveHint.textContent = '저장됨 ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+    } catch (e) {
+      storageOK = false;
+      el.storageWarn.classList.add('show');
+      el.saveHint.textContent = '저장 실패 — 백업을 받아 두세요';
+    }
+  }
+
+  function cleanWeather(src) {
+    var out = { daily: {}, fetchedAt: 0, lat: null, lon: null, place: '', placeKey: 'jeju' };
+    if (!src || typeof src !== 'object') { return out; }
+    if (src.daily && typeof src.daily === 'object') {
+      Object.keys(src.daily).forEach(function (k) {
+        var v = src.daily[k];
+        if (!parseKey(k) || !v || typeof v !== 'object') { return; }
+        out.daily[k] = {
+          code: (typeof v.code === 'number') ? v.code : null,
+          icon: (typeof v.icon === 'string') ? v.icon : '🌡️',
+          name: (typeof v.name === 'string') ? v.name : '—',
+          tmax: (typeof v.tmax === 'number' && isFinite(v.tmax)) ? v.tmax : null,
+          tmin: (typeof v.tmin === 'number' && isFinite(v.tmin)) ? v.tmin : null,
+          wind: (typeof v.wind === 'number' && isFinite(v.wind)) ? v.wind : null,
+          gust: (typeof v.gust === 'number' && isFinite(v.gust)) ? v.gust : null
+        };
+      });
+    }
+    out.fetchedAt = (typeof src.fetchedAt === 'number' && isFinite(src.fetchedAt)) ? src.fetchedAt : 0;
+    out.lat = (typeof src.lat === 'number' && isFinite(src.lat)) ? src.lat : null;
+    out.lon = (typeof src.lon === 'number' && isFinite(src.lon)) ? src.lon : null;
+    out.place = (typeof src.place === 'string') ? src.place.slice(0, 24) : '';
+    out.placeKey = (src.placeKey === 'seoul' || src.placeKey === 'geo' || src.placeKey === 'jeju') ? src.placeKey : 'jeju';
+    return out;
+  }
+
+  function load() {
+    storageOK = storageAvailable();
+    if (!storageOK) {
+      el.storageWarn.classList.add('show');
+      return;
+    }
+    try {
+      var raw = window.localStorage.getItem(LS_KEY);
+      if (!raw) { return; }
+      var obj = JSON.parse(raw);
+      if (!obj || typeof obj !== 'object') { return; }
+
+      if (obj.data && typeof obj.data === 'object') {
+        var clean = {};
+        Object.keys(obj.data).forEach(function (k) {
+          var p = parseKey(k), e = obj.data[k];
+          if (!p || !e || typeof e !== 'object') { return; }
+          var a = parseInt(e.a, 10);
+          if (!isFinite(a) || a < 0) { a = 0; }
+          var m = (typeof e.m === 'string') ? e.m.slice(0, 40) : '';
+          if (a > 0 || m) { clean[k] = { a: a, m: m }; }
+        });
+        state.data = clean;
+      }
+      if (Array.isArray(obj.recent)) {
+        state.recent = obj.recent.filter(function (v) { return isFinite(v) && v > 0; }).slice(0, 4);
+      }
+      if (obj.manual && typeof obj.manual === 'object') {
+        var mans = {};
+        Object.keys(obj.manual).forEach(function (k) {
+          if (parseKey(k) && manualInfo(obj.manual[k])) { mans[k] = obj.manual[k]; }
+        });
+        state.manual = mans;
+      }
+      if (obj.weather) { state.weather = cleanWeather(obj.weather); }
+      if (obj.placeKey === 'seoul' || obj.placeKey === 'geo' || obj.placeKey === 'jeju') {
+        state.placeKey = obj.placeKey;
+      } else if (state.weather && state.weather.placeKey) {
+        state.placeKey = state.weather.placeKey;
+      }
+    } catch (e) {
+      /* 손상된 저장값은 무시 */
+    }
+  }
+
+  /* ---------------- 계산 ---------------- */
+
+  function monthStats(y, m) {
+    var prefix = y + '-' + pad2(m + 1) + '-';
+    var total = 0, days = 0;
+    Object.keys(state.data).forEach(function (k) {
+      if (k.indexOf(prefix) !== 0) { return; }
+      var a = amountOf(k);
+      if (a > 0) { total += a; days += 1; }
+    });
+    return { total: total, days: days, avg: days ? Math.round(total / days) : 0 };
+  }
+
+  /* ---------------- 달력 ---------------- */
+
+  function cellAmount(n) {
+    if (!n) { return ''; }
+    if (n % 10000 === 0 && n >= 10000) {
+      return (n / 10000).toLocaleString('ko-KR') + '만';
+    }
+    return n.toLocaleString('ko-KR');
+  }
+
+  var SHIFT_ANCHOR = Date.UTC(2026, 10, 15);
+  function shiftOf(y, m, d) {
+    var diff = Math.round((Date.UTC(y, m, d) - SHIFT_ANCHOR) / 86400000);
+    var idx = ((diff % 6) + 6) % 6;
+    if (idx === 0 || idx === 3) { return { cls: 'sh-off', bcls: 'off', label: '휴', full: '휴무' }; }
+    if (idx === 1 || idx === 2) { return { cls: 'sh-pm', bcls: 'pm', label: '오후', full: '오후 근무' }; }
+    return { cls: 'sh-am', bcls: 'am', label: '오전', full: '오전 근무' };
+  }
+
+  function renderCalendar() {
+    var y = state.viewY, m = state.viewM;
+    var firstWd = new Date(y, m, 1).getDay();
+    var daysInMonth = new Date(y, m + 1, 0).getDate();
+    var cells = Math.ceil((firstWd + daysInMonth) / 7) * 7;
+    var t = today();
+    var todayKey = keyOf(t.y, t.m, t.d);
+    var html = '';
+    var i, d, key, wd, amount, txt, cls, e, w, temp, amp, sh;
+
+    for (i = 0; i < cells; i += 1) {
+      d = i - firstWd + 1;
+      if (d < 1 || d > daysInMonth) {
+        html += '<div class="cell empty" aria-hidden="true"></div>';
+        continue;
+      }
+      key = keyOf(y, m, d);
+      wd = new Date(y, m, d).getDay();
+      amount = amountOf(key);
+      e = entryOf(key);
+      w = weatherFor(key);
+      sh = shiftOf(y, m, d);
+      cls = 'cell ' + sh.cls;
+      if (wd === 0) { cls += ' sun'; }
+      if (wd === 6) { cls += ' sat'; }
+      if (amount > 0) { cls += ' has'; }
+      if (key === todayKey) { cls += ' today'; }
+      if (key === state.selected) { cls += ' selected'; }
+
+      html += '<button type="button" class="' + cls + '" data-date="' + key + '" aria-label="' +
+        (m + 1) + '월 ' + d + '일 ' + WD[wd] + '요일 ' + sh.full +
+        (w ? ' ' + w.name : '') + (amount ? ' ' + won(amount) : '') + '">';
+
+      html += '<span class="ctop"><span class="dnum">' + d + '</span>' +
+        '<span class="shb ' + sh.bcls + '">' + sh.label + '</span>' +
+        (e && e.m ? '<span class="mdot"></span>' : '') +
+        (w ? '<span class="wxi">' + w.icon + '</span>' : '') + '</span>';
+
+      if (w) {
+        temp = (w.tmax == null) ? '' : Math.round(w.tmax) + '°';
+        amp = (w.tmin == null) ? '' : '/' + Math.round(w.tmin) + '°';
+        if (temp) {
+          html += '<span class="wt"><span class="tmax">' + temp + '</span>' +
+            (amp ? '<span class="tmin">' + amp + '</span>' : '') + '</span>';
+        }
+      }
+
+      txt = cellAmount(amount);
+      if (txt) {
+        html += '<span class="amt' + (txt.length >= 6 ? ' s' : '') + '">' + txt + '</span>';
+      }
+      html += '</button>';
+    }
+    el.grid.innerHTML = html;
+  }
+
+  function renderSummary() {
+    var y = state.viewY, m = state.viewM;
+    var s = monthStats(y, m);
+    var tax = Math.round(s.total * 0.033);
+    el.monthTitle.textContent = y + '년 ' + (m + 1) + '월';
+    el.totalAmount.textContent = won(s.total);
+    el.workDays.textContent = s.days + '일';
+    el.avgAmount.textContent = s.avg ? won(s.avg) : '0원';
+    el.bottomLabel.textContent = (m + 1) + '월 합계';
+    el.bottomSub.textContent = s.days + '일 · 평균 ' + (s.avg ? won(s.avg) : '0원');
+    el.bottomTotal.textContent = won(s.total);
+
+    if (el.taxToggle.checked) {
+      el.taxLabel.classList.add('on');
+      el.netWrap.classList.remove('hide');
+      el.netLabel.classList.remove('hide');
+      el.netAmount.classList.remove('hide');
+      el.netAmount.textContent = won(s.total - tax);
+      el.netAmount.title = '공제액 ' + won(tax);
+      el.bottomNet.classList.remove('hide');
+      el.bottomNet.textContent = '실수령 ' + won(s.total - tax);
+    } else {
+      el.taxLabel.classList.remove('on');
+      el.netWrap.classList.add('hide');
+      el.netLabel.classList.add('hide');
+      el.netAmount.classList.add('hide');
+      el.bottomNet.classList.add('hide');
+    }
+  }
+
+  function renderWxStatus(fail) {
+    var w = state.weather;
+    var hasData = w && w.daily && Object.keys(w.daily).length > 0;
+    el.wxStatus.classList.toggle('fail', !!fail);
+    if (!hasData) {
+      el.wxStatus.textContent = (navigator.onLine === false)
+        ? '오프라인 — 날씨 정보 없음'
+        : '날씨 정보를 아직 불러오지 않았어요';
+      return;
+    }
+    var d = new Date(w.fetchedAt || Date.now());
+    var stamp = (d.getMonth() + 1) + '/' + d.getDate() + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+    el.wxStatus.textContent = (w.place || '제주공항') + ' 기준 · ' + stamp + ' 업데이트';
+    if (fail) { el.wxStatus.textContent = '최신 날씨를 못 받아 저장된 날씨 표시 중'; }
+  }
+
+  /* ---------------- 입력 시트 ---------------- */
+
+  function openSheet() {
+    el.sheet.classList.add('open');
+    el.backdrop.classList.add('show');
+  }
+  function closeSheet() {
+    el.sheet.classList.remove('open');
+    el.backdrop.classList.remove('show');
+    try { el.amountInput.blur(); } catch (e) { /* 무시 */ }
+  }
+
+  function renderPanel() {
+    var p = parseKey(state.selected);
+    if (!p) { return; }
+    var wd = new Date(p.y, p.m, p.d).getDay();
+    var sh = shiftOf(p.y, p.m, p.d);
+    el.panelDate.textContent = p.y + '년 ' + (p.m + 1) + '월 ' + p.d + '일 (' + WD[wd] + ') · ' + sh.full;
+
+    var e = entryOf(state.selected);
+    el.amountInput.value = (e && e.a > 0) ? String(e.a) : '';
+    el.memoInput.value = (e && e.m) ? e.m : '';
+    renderPreview();
+    renderRecent();
+    renderWxDaily();
+    renderWxChips();
+  }
+
+  function renderPreview() {
+    var raw = el.amountInput.value.replace(/[^0-9]/g, '');
+    if (!raw) {
+      el.preview.textContent = '금액을 입력하면 바로 저장됩니다';
+      return;
+    }
+    var n = parseInt(raw, 10);
+    if (!isFinite(n)) { n = 0; }
+    el.preview.textContent = won(n) + (n >= 10000 ? '  ·  ' + cellAmount(n) : '');
+  }
+
+  function renderRecent() {
+    var list = state.recent.filter(function (v) { return v > 0; }).slice(0, 4);
+    if (!list.length) {
+      el.recent.classList.add('hide');
+      el.recent.innerHTML = '';
+      return;
+    }
+    var html = '<span class="rlabel">최근</span>';
+    list.forEach(function (v) {
+      html += '<button type="button" data-recent="' + v + '">' + cellAmount(v) + '</button>';
+    });
+    el.recent.innerHTML = html;
+    el.recent.classList.remove('hide');
+  }
+
+  function renderWxDaily() {
+    var key = state.selected;
+    if (!key) { el.wxDaily.textContent = ''; return; }
+    var w = weatherFor(key);
+    if (!w) {
+      el.wxDaily.innerHTML = '<span class="sub2">이 날 날씨 정보가 없습니다. 아래에서 직접 골라 두세요.</span>';
+      return;
+    }
+    var parts = [];
+    parts.push(w.icon + ' ' + w.name + (w.manual ? ' <span class="sub2">(직접 입력)</span>' : ''));
+    var t = tempText(w);
+    if (t) { parts.push('기온 ' + t); }
+    el.wxDaily.innerHTML = parts.join(' <span class="sub2">·</span> ');
+  }
+
+  function renderWxChips() {
+    var key = state.selected;
+    var chosen = key ? state.manual[key] : null;
+    var auto = (key && state.weather && state.weather.daily) ? state.weather.daily[key] : null;
+    var html = '';
+
+    MANUAL.forEach(function (m) {
+      html += '<button type="button" data-wx="' + m.id + '" class="' + (chosen === m.id ? 'on' : '') + '">' +
+        '<span class="ci">' + m.icon + '</span>' + m.name + '</button>';
+    });
+    html += '<button type="button" data-wx="" class="none ' + (!chosen ? 'on' : '') + '">선택안함</button>';
+    el.wxChips.innerHTML = html;
+
+    if (auto && chosen) {
+      el.wxAuto.textContent = '예보: ' + auto.icon + ' ' + auto.name + (tempText(auto) ? ' ' + tempText(auto) : '');
+    } else if (!auto && key) {
+      el.wxAuto.textContent = '예보 없음';
+    } else {
+      el.wxAuto.textContent = '';
+    }
+  }
+
+  function setEntry(key, amount, memo) {
+    var a = Math.max(0, Math.round(amount || 0));
+    var m = (memo || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+    if (a > 0 || m) {
+      state.data[key] = { a: a, m: m };
+    } else {
+      delete state.data[key];
+    }
+  }
+
+  function pushRecent(v) {
+    if (!(v > 0)) { return; }
+    state.recent = [v].concat(state.recent.filter(function (x) { return x !== v; })).slice(0, 4);
+  }
+
+  function applyAmount(silent) {
+    if (!state.selected) { return; }
+    var raw = el.amountInput.value.replace(/[^0-9]/g, '').slice(0, 9);
+    var v = raw ? parseInt(raw, 10) : 0;
+    if (!isFinite(v)) { v = 0; }
+    setEntry(state.selected, v, el.memoInput.value);
+    if (v > 0) { pushRecent(v); }
+    renderCalendar();
+    renderSummary();
+    if (!silent) { renderRecent(); }
+    persist();
+  }
+
+  function scheduleApply() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () { applyAmount(true); }, 250);
+  }
+
+  /* ---------------- 날씨 불러오기 ---------------- */
+
+  function fetchWeather(lat, lon, place, placeKey) {
+    if (wxBusy) { return; }
+    if (typeof fetch !== 'function') {
+      el.wxStatus.textContent = '이 브라우저에서는 날씨를 불러올 수 없어요';
+      return;
+    }
+    wxBusy = true;
+    el.wxRefresh.disabled = true;
+    el.wxStatus.classList.remove('fail');
+    el.wxStatus.textContent = place + ' 날씨 불러오는 중…';
+
+    var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat.toFixed(4) +
+      '&longitude=' + lon.toFixed(4) +
+      '&past_days=31&forecast_days=16' +
+      '&current=wind_speed_10m,wind_gusts_10m' +
+      '&hourly=wind_speed_10m' +
+      '&daily=weather_code,temperature_2m_max,temperature_2m_min,wind_speed_10m_max,wind_gusts_10m_max' +
+      '&wind_speed_unit=ms' +
+      '&timezone=Asia%2FSeoul';
+
+    var ctrl = null;
+    try { if (typeof AbortController === 'function') { ctrl = new AbortController(); } } catch (e) { ctrl = null; }
+    var timer = setTimeout(function () {
+      if (ctrl) { try { ctrl.abort(); } catch (e) { /* 무시 */ } }
+    }, 12000);
+
+    function finish() {
+      clearTimeout(timer);
+      wxBusy = false;
+      el.wxRefresh.disabled = false;
+    }
+
+    function onFail() {
+      finish();
+      var has = state.weather && Object.keys(state.weather.daily || {}).length > 0;
+      renderWxStatus(true);
+      if (!has) {
+        el.wxStatus.textContent = (navigator.onLine === false)
+          ? '오프라인 — 날씨를 불러올 수 없어요'
+          : '날씨를 불러오지 못했어요 (인터넷 확인)';
+        el.wxStatus.classList.add('fail');
+      }
+    }
+
+    try {
+      fetch(url, ctrl ? { signal: ctrl.signal } : {}).then(function (res) {
+        if (!res.ok) { throw new Error('HTTP ' + res.status); }
+        return res.json();
+      }).then(function (j) {
+        var d = j && j.daily;
+        if (!d || !d.time || !d.time.length) { throw new Error('no daily data'); }
+        var daySum = {}, dayCnt = {};
+        var h = j && j.hourly;
+        var i, ts, wv, hr, dk;
+        if (h && h.time && h.wind_speed_10m) {
+          for (i = 0; i < h.time.length; i += 1) {
+            ts = h.time[i];
+            wv = h.wind_speed_10m[i];
+            if (typeof ts === 'string' && typeof wv === 'number') {
+              hr = parseInt(ts.slice(11, 13), 10);
+              if (hr >= 9 && hr <= 18) {
+                dk = ts.slice(0, 10);
+                daySum[dk] = (daySum[dk] || 0) + wv;
+                dayCnt[dk] = (dayCnt[dk] || 0) + 1;
+              }
+            }
+          }
+        }
+        var daily = {};
+        var code, info, tmax, tmin, wind, wmax, gust;
+        for (i = 0; i < d.time.length; i += 1) {
+          dk = d.time[i];
+          code = (d.weather_code && typeof d.weather_code[i] === 'number') ? d.weather_code[i] : null;
+          info = wmoInfo(code === null ? -1 : code);
+          tmax = (d.temperature_2m_max && typeof d.temperature_2m_max[i] === 'number') ? d.temperature_2m_max[i] : null;
+          tmin = (d.temperature_2m_min && typeof d.temperature_2m_min[i] === 'number') ? d.temperature_2m_min[i] : null;
+          wmax = (d.wind_speed_10m_max && typeof d.wind_speed_10m_max[i] === 'number') ? d.wind_speed_10m_max[i] : null;
+          wind = dayCnt[dk] ? Math.round((daySum[dk] / dayCnt[dk]) * 10) / 10 : wmax;
+          gust = (d.wind_gusts_10m_max && typeof d.wind_gusts_10m_max[i] === 'number') ? d.wind_gusts_10m_max[i] : null;
+          daily[dk] = { code: code, icon: info.icon, name: info.name, tmax: tmax, tmin: tmin, wind: wind, wmax: wmax, gust: gust };
+        }
+        var curWind = (j.current && typeof j.current.wind_speed_10m === 'number') ? j.current.wind_speed_10m : null;
+        state.weather = {
+          ver: 2,
+          daily: daily,
+          currentWind: curWind,
+          fetchedAt: Date.now(),
+          lat: lat,
+          lon: lon,
+          place: place,
+          placeKey: placeKey || state.placeKey
+        };
+        if (placeKey) { state.placeKey = placeKey; }
+        finish();
+        try { el.locSel.value = state.placeKey; } catch (e) { /* 무시 */ }
+        persist();
+        renderCalendar();
+        renderWxDaily();
+        renderWxChips();
+        renderWxStatus(false);
+      }).catch(onFail);
+    } catch (e) {
+      onFail();
+    }
+  }
+
+  function geolocate(ok, fail) {
+    if (!navigator.geolocation) { fail(); return; }
+    var settled = false;
+    var guard = setTimeout(function () { if (!settled) { settled = true; fail(); } }, 10000);
+    try {
+      navigator.geolocation.getCurrentPosition(function (pos) {
+        if (settled) { return; }
+        settled = true;
+        clearTimeout(guard);
+        ok(pos.coords.latitude, pos.coords.longitude);
+      }, function () {
+        if (settled) { return; }
+        settled = true;
+        clearTimeout(guard);
+        fail();
+      }, { timeout: 8000, maximumAge: 600000, enableHighAccuracy: false });
+    } catch (e) {
+      clearTimeout(guard);
+      fail();
+    }
+  }
+
+  function loadWeather(key, useCache) {
+    if (key === 'geo') {
+      if (useCache && state.weather && state.weather.placeKey === 'geo' &&
+          state.weather.lat != null && state.weather.lon != null) {
+        fetchWeather(state.weather.lat, state.weather.lon, '내 위치', 'geo');
+        return;
+      }
+      el.wxStatus.textContent = '현재 위치 확인 중…';
+      geolocate(function (lat, lon) {
+        fetchWeather(lat, lon, '내 위치', 'geo');
+      }, function () {
+        fetchWeather(PLACES.jeju.lat, PLACES.jeju.lon, '제주공항', 'jeju');
+      });
+      return;
+    }
+    var p = PLACES[key] || PLACES.jeju;
+    fetchWeather(p.lat, p.lon, p.name, key === 'seoul' ? 'seoul' : 'jeju');
+  }
+
+  function maybeAutoFetch() {
+    var w = state.weather;
+    var fresh = w && w.ver === 2 && w.fetchedAt && (Date.now() - w.fetchedAt < WX_TTL);
+    if (fresh) { renderWxStatus(false); return; }
+    if (navigator.onLine === false) { renderWxStatus(false); return; }
+    if (state.placeKey === 'geo' && !(w && w.placeKey === 'geo' && w.lat != null)) {
+      /* 위치 권한 없이 자동 요청하지 않는다 — ↻ 를 누르면 확인 */
+      el.wxStatus.textContent = '내 위치 선택됨 — ↻ 를 눌러 위치 확인';
+      return;
+    }
+    loadWeather(state.placeKey, true);
+  }
+
+  /* ---------------- 날짜 선택 ---------------- */
+
+  function selectDate(key, focusInput) {
+    var p = parseKey(key);
+    if (!p) { return; }
+    state.selected = key;
+    if (p.y !== state.viewY || p.m !== state.viewM) {
+      state.viewY = p.y;
+      state.viewM = p.m;
+    }
+    renderCalendar();
+    renderSummary();
+    renderPanel();
+    openSheet();
+    if (focusInput) {
+      setTimeout(function () {
+        try {
+          el.amountInput.focus();
+          var len = el.amountInput.value.length;
+          el.amountInput.setSelectionRange(len, len);
+        } catch (e) { /* 무시 */ }
+      }, 120);
+    }
+  }
+
+  function shiftDay(delta) {
+    var p = parseKey(state.selected);
+    if (!p) { return; }
+    var d = new Date(p.y, p.m, p.d + delta);
+    selectDate(keyOf(d.getFullYear(), d.getMonth(), d.getDate()), false);
+  }
+
+  function changeMonth(delta) {
+    var d = new Date(state.viewY, state.viewM + delta, 1);
+    state.viewY = d.getFullYear();
+    state.viewM = d.getMonth();
+    var sel = parseKey(state.selected);
+    if (sel && (sel.y !== state.viewY || sel.m !== state.viewM)) {
+      state.selected = null;
+    }
+    renderCalendar();
+    renderSummary();
+    if (state.selected) { renderPanel(); }
+  }
+
+  function goToday() {
+    var t = today();
+    state.viewY = t.y;
+    state.viewM = t.m;
+    state.selected = keyOf(t.y, t.m, t.d);
+    renderCalendar();
+    renderSummary();
+    renderPanel();
+  }
+
+  /* ---------------- 내보내기 ---------------- */
+
+  function csvCell(v) {
+    var s = String(v == null ? '' : v);
+    if (/[",\r\n]/.test(s)) { s = '"' + s.replace(/"/g, '""') + '"'; }
+    return s;
+  }
+
+  function downloadBlob(blob, name) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () {
+      try { document.body.removeChild(a); } catch (e) { /* 무시 */ }
+      URL.revokeObjectURL(url);
+    }, 1500);
+  }
+
+  function exportCSV() {
+    var y = state.viewY, m = state.viewM;
+    var daysInMonth = new Date(y, m + 1, 0).getDate();
+    var rows = [['날짜', '요일', '날씨', '기온(°C 최고/최저)', '풍속(m/s)', '일당(원)', '메모']];
+    var d, key, e, a, w;
+    for (d = 1; d <= daysInMonth; d += 1) {
+      key = keyOf(y, m, d);
+      e = entryOf(key);
+      if (!e) { continue; }
+      a = amountOf(key);
+      if (a === 0 && !e.m) { continue; }
+      w = weatherFor(key);
+      rows.push([
+        y + '-' + pad2(m + 1) + '-' + pad2(d),
+        WD[new Date(y, m, d).getDay()],
+        w ? w.name + (w.manual ? ' (직접입력)' : '') : '',
+        w ? tempText(w).replace(/°/g, '') : '',
+        (w && w.wind != null) ? w.wind.toFixed(1) : '',
+        a,
+        e.m || ''
+      ]);
+    }
+    var s = monthStats(y, m);
+    var tax = Math.round(s.total * 0.033);
+    rows.push([]);
+    rows.push(['합계', '', '', '', '', s.total, '']);
+    rows.push(['근무 일수', '', '', '', '', s.days + '일', '']);
+    rows.push(['평균 일당', '', '', '', '', s.avg, '']);
+    rows.push(['3.3% 공제', '', '', '', '', tax, '실수령 ' + (s.total - tax)]);
+
+    var csv = rows.map(function (r) {
+      return r.map(csvCell).join(',');
+    }).join('\r\n');
+
+    var blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    downloadBlob(blob, '일당내역_' + y + '-' + pad2(m + 1) + '.csv');
+  }
+
+  function exportJSON() {
+    var t = today();
+    var payload = {
+      v: 1,
+      app: 'daily-wage-calendar',
+      exportedAt: new Date().toISOString(),
+      data: state.data,
+      recent: state.recent,
+      manual: state.manual,
+      weather: state.weather,
+      placeKey: state.placeKey
+    };
+    var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+    downloadBlob(blob, '일당기록_백업_' + t.y + pad2(t.m + 1) + pad2(t.d) + '.json');
+  }
+
+  function importJSON(file) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      try {
+        var obj = JSON.parse(String(reader.result));
+        var src = (obj && obj.data && typeof obj.data === 'object') ? obj.data : null;
+        if (!src) {
+          window.alert('백업 파일 형식이 아닙니다.');
+          return;
+        }
+        var keys = Object.keys(src).filter(function (k) { return !!parseKey(k); });
+        if (!keys.length) {
+          window.alert('불러올 기록이 없습니다.');
+          return;
+        }
+        if (!window.confirm(keys.length + '일치 기록을 불러옵니다.\n같은 날짜의 기존 금액은 백업 내용으로 바뀝니다.')) { return; }
+        keys.forEach(function (k) {
+          var e = src[k];
+          if (!e || typeof e !== 'object') { return; }
+          var a = parseInt(e.a, 10);
+          if (!isFinite(a) || a < 0) { a = 0; }
+          var m = (typeof e.m === 'string') ? e.m.slice(0, 40) : '';
+          if (a > 0 || m) { state.data[k] = { a: a, m: m }; }
+        });
+        if (obj.manual && typeof obj.manual === 'object') {
+          Object.keys(obj.manual).forEach(function (k) {
+            if (parseKey(k) && manualInfo(obj.manual[k])) { state.manual[k] = obj.manual[k]; }
+          });
+        }
+        if (obj.weather) { state.weather = cleanWeather(obj.weather); }
+        if (obj.placeKey === 'seoul' || obj.placeKey === 'geo' || obj.placeKey === 'jeju') {
+          state.placeKey = obj.placeKey;
+          el.locSel.value = obj.placeKey;
+        }
+        if (Array.isArray(obj.recent)) {
+          var r = obj.recent.filter(function (v) { return isFinite(v) && v > 0; }).slice(0, 4);
+          if (r.length) { state.recent = r; }
+        }
+        persist();
+        renderCalendar();
+        renderSummary();
+        renderPanel();
+        renderWxStatus(false);
+        el.saveHint.textContent = '백업을 불러왔습니다';
+      } catch (e) {
+        window.alert('백업 파일을 읽을 수 없습니다.');
+      }
+    };
+    reader.readAsText(file, 'utf-8');
+  }
+
+  function resetAll() {
+    var cnt = Object.keys(state.data).length;
+    if (!cnt && !Object.keys(state.manual).length) {
+      window.alert('저장된 기록이 없습니다.');
+      return;
+    }
+    if (!window.confirm('저장된 ' + cnt + '일치 기록을 모두 지웁니다.\n되돌릴 수 없습니다.')) { return; }
+    state.data = {};
+    state.recent = [];
+    state.manual = {};
+    persist();
+    renderCalendar();
+    renderSummary();
+    renderPanel();
+  }
+
+  /* ---------------- 이벤트 ---------------- */
+
+  function bind() {
+    el.prevBtn.addEventListener('click', function () { changeMonth(-1); });
+    el.nextBtn.addEventListener('click', function () { changeMonth(1); });
+    el.todayBtn.addEventListener('click', goToday);
+    el.monthTitle.addEventListener('click', goToday);
+
+    el.grid.addEventListener('click', function (e) {
+      var node = e.target;
+      while (node && node !== el.grid && !(node.getAttribute && node.getAttribute('data-date'))) {
+        node = node.parentNode;
+      }
+      if (node && node !== el.grid) {
+        selectDate(node.getAttribute('data-date'), true);
+      }
+    });
+
+    el.backdrop.addEventListener('click', closeSheet);
+    el.sheetClose.addEventListener('click', closeSheet);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { closeSheet(); }
+    });
+
+    el.amountInput.addEventListener('input', function () {
+      var digits = this.value.replace(/[^0-9]/g, '').slice(0, 9);
+      if (this.value !== digits) { this.value = digits; }
+      renderPreview();
+      scheduleApply();
+    });
+    el.amountInput.addEventListener('change', function () { applyAmount(false); });
+    el.amountInput.addEventListener('blur', function () { applyAmount(false); });
+    el.amountInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); this.blur(); }
+    });
+
+    el.memoInput.addEventListener('input', scheduleApply);
+    el.memoInput.addEventListener('blur', function () { applyAmount(false); });
+    el.memoInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); this.blur(); }
+    });
+
+    el.clearAmt.addEventListener('click', function () {
+      el.amountInput.value = '';
+      renderPreview();
+      applyAmount(false);
+      try { el.amountInput.focus(); } catch (err) { /* 무시 */ }
+    });
+
+    document.querySelector('.quick').addEventListener('click', function (e) {
+      var b = e.target;
+      while (b && b !== this && !(b.getAttribute && b.getAttribute('data-add'))) { b = b.parentNode; }
+      if (!b || b === this) { return; }
+      var add = parseInt(b.getAttribute('data-add'), 10);
+      var cur = parseInt(el.amountInput.value.replace(/[^0-9]/g, ''), 10);
+      if (!isFinite(cur)) { cur = 0; }
+      el.amountInput.value = String(Math.min(999999999, cur + add));
+      renderPreview();
+      applyAmount(false);
+    });
+
+    el.recent.addEventListener('click', function (e) {
+      var b = e.target;
+      while (b && b !== this && !(b.getAttribute && b.getAttribute('data-recent'))) { b = b.parentNode; }
+      if (!b || b === this) { return; }
+      var v = parseInt(b.getAttribute('data-recent'), 10);
+      if (!isFinite(v)) { return; }
+      el.amountInput.value = String(v);
+      renderPreview();
+      applyAmount(false);
+    });
+
+    el.wxChips.addEventListener('click', function (e) {
+      var b = e.target;
+      while (b && b !== this && !(b.getAttribute && b.hasAttribute('data-wx'))) { b = b.parentNode; }
+      if (!b || b === this || !state.selected) { return; }
+      var id = b.getAttribute('data-wx');
+      if (id) { state.manual[state.selected] = id; } else { delete state.manual[state.selected]; }
+      persist();
+      renderWxChips();
+      renderWxDaily();
+      renderCalendar();
+    });
+
+    el.wxRefresh.addEventListener('click', function () { loadWeather(state.placeKey, true); });
+
+    el.locSel.addEventListener('change', function () {
+      var v = this.value;
+      if (v !== 'jeju' && v !== 'seoul' && v !== 'geo') { v = 'jeju'; }
+      state.placeKey = v;
+      persist();
+      loadWeather(v, false);
+    });
+
+    el.prevDay.addEventListener('click', function () { shiftDay(-1); });
+    el.nextDay.addEventListener('click', function () { shiftDay(1); });
+
+    el.deleteDay.addEventListener('click', function () {
+      if (!state.selected) { return; }
+      var p = parseKey(state.selected);
+      if (!window.confirm((p.m + 1) + '월 ' + p.d + '일 기록을 지울까요?')) { return; }
+      delete state.data[state.selected];
+      delete state.manual[state.selected];
+      el.amountInput.value = '';
+      el.memoInput.value = '';
+      renderPreview();
+      renderCalendar();
+      renderSummary();
+      renderRecent();
+      renderWxDaily();
+      renderWxChips();
+      persist();
+      el.saveHint.textContent = '지웠습니다';
+    });
+
+    el.taxToggle.addEventListener('change', renderSummary);
+
+    el.csvBtn.addEventListener('click', exportCSV);
+    el.csvBtn2.addEventListener('click', exportCSV);
+    el.jsonBtn.addEventListener('click', exportJSON);
+    el.importBtn.addEventListener('click', function () { el.importFile.click(); });
+    el.importFile.addEventListener('change', function () {
+      if (this.files && this.files[0]) { importJSON(this.files[0]); }
+      this.value = '';
+    });
+    el.resetBtn.addEventListener('click', resetAll);
+
+    window.addEventListener('online', function () { maybeAutoFetch(); });
+
+    var sx = 0, sy = 0, tracking = false;
+    el.calSection.addEventListener('touchstart', function (e) {
+      if (e.touches.length !== 1) { return; }
+      sx = e.touches[0].clientX;
+      sy = e.touches[0].clientY;
+      tracking = true;
+    }, { passive: true });
+    el.calSection.addEventListener('touchend', function (e) {
+      if (!tracking) { return; }
+      tracking = false;
+      var t = e.changedTouches[0];
+      var dx = t.clientX - sx;
+      var dy = t.clientY - sy;
+      if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.6) {
+        changeMonth(dx < 0 ? 1 : -1);
+      }
+    }, { passive: true });
+
+    window.addEventListener('beforeunload', function () {
+      clearTimeout(saveTimer);
+      if (state.selected) {
+        var raw = el.amountInput.value.replace(/[^0-9]/g, '');
+        setEntry(state.selected, raw ? parseInt(raw, 10) : 0, el.memoInput.value);
+      }
+      persist();
+    });
+  }
+
+  /* ---------------- 시작 ---------------- */
+
+  function init() {
+    el = {
+      prevBtn: $('prevBtn'), nextBtn: $('nextBtn'), todayBtn: $('todayBtn'), monthTitle: $('monthTitle'),
+      totalAmount: $('totalAmount'), workDays: $('workDays'), avgAmount: $('avgAmount'),
+      bottomLabel: $('bottomLabel'), bottomSub: $('bottomSub'), bottomTotal: $('bottomTotal'), bottomNet: $('bottomNet'),
+      netWrap: $('netWrap'), netLabel: $('netLabel'), netAmount: $('netAmount'),
+      taxToggle: $('taxToggle'), taxLabel: $('taxLabel'), storageWarn: $('storageWarn'),
+      wxStatus: $('wxStatus'), wxRefresh: $('wxRefresh'), locSel: $('locSel'),
+      calSection: $('calSection'), grid: $('grid'),
+      sheet: $('sheet'), backdrop: $('backdrop'), sheetClose: $('sheetClose'),
+      panelDate: $('panelDate'), prevDay: $('prevDay'), nextDay: $('nextDay'),
+      amountInput: $('amountInput'), clearAmt: $('clearAmt'), preview: $('preview'),
+      recent: $('recent'), wxChips: $('wxChips'), wxAuto: $('wxAuto'), wxDaily: $('wxDaily'),
+      memoInput: $('memoInput'), saveHint: $('saveHint'), deleteDay: $('deleteDay'),
+      csvBtn: $('csvBtn'), csvBtn2: $('csvBtn2'), jsonBtn: $('jsonBtn'),
+      importBtn: $('importBtn'), importFile: $('importFile'), resetBtn: $('resetBtn')
+    };
+
+    var t = today();
+    state.viewY = t.y;
+    state.viewM = t.m;
+    state.selected = keyOf(t.y, t.m, t.d);
+
+    load();
+    el.locSel.value = state.placeKey;
+    bind();
+    renderCalendar();
+    renderSummary();
+    renderPanel();
+    renderWxStatus(false);
+    setTimeout(maybeAutoFetch, 500);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>
