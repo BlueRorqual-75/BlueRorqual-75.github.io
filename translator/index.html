@@ -760,7 +760,61 @@
 
   /* ══════════════ 음성 인식 ══════════════ */
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  var rec = null, listening = false, heardFinal = "", micWatchdog = null, restartTimer = null;
+  var IS_ANDROID = /\bAndroid\b/i.test(navigator.userAgent);
+  var rec = null, listening = false, micWatchdog = null, restartTimer = null, restartCount = 0;
+
+  // 세션 상태
+  //   speechBase : 마이크를 켜기 전 입력창에 있던 확정 텍스트(세션마다 한 번만 반영)
+  //   speechSegs : 이번 세션에서 확정된 세그먼트(중복 제거됨)
+  //   speechShown: 입력창에 마지막으로 쓴 값
+  //   speechSent : 마지막으로 번역을 요청한 확정 텍스트
+  var speechBase = "", speechSegs = [], speechShown = "", speechSent = "";
+
+  function normSpeech(s){ return String(s == null ? "" : s).replace(/\s+/g, " " ).trim(); }
+
+  // 안드로이드 크롬은 같은 발화를 여러 개의 isFinal 세그먼트로, 앞 내용을 포함한 채
+  // (resultIndex = 0으로) 다시 보내는 경우가 있다. 이어 붙이기 전에 같은 내용·앞 내용 포함·
+  // 꼬리 중복을 걸러 한 번만 남긴다.
+  function addFinalSegment(segs, raw){
+    var seg = normSpeech(raw);
+    if (!seg) return;
+    var prev = segs.length ? segs[segs.length - 1] : "";
+
+    if (prev) {
+      if (seg === prev) return;                       // 완전히 같은 세그먼트
+      if (seg.indexOf(prev) === 0) {                  // 앞 내용을 포함한 누적형 → 교체
+        segs[segs.length - 1] = seg;
+        return;
+      }
+      if (prev.slice(-seg.length) === seg) return;    // 직전 끝부분과 같은 꼬리
+      var max = Math.min(prev.length, seg.length);    // 꼬리/머리가 겹치면 한 번만 잇기
+      for (var k = max; k >= 2; k--) {
+        if (prev.slice(-k) === seg.slice(0, k)) {
+          segs[segs.length - 1] = prev + seg.slice(k);
+          return;
+        }
+      }
+    }
+
+    for (var j = segs.length - 1; j >= 0; j--) {      // 이미 들어 있는 세그먼트 재전송
+      if (segs[j] === seg) return;
+    }
+    segs.push(seg);
+  }
+
+  // e.results 전체를 매번 처음부터 다시 읽어 확정/임시 텍스트를 새로 조립한다.
+  // (resultIndex를 믿고 += 로 누적하면 같은 문장이 5번씩 찍힌다)
+  function collectSpeech(results){
+    var finals = [], interim = "";
+    for (var i = 0; i < results.length; i++) {
+      var r = results[i];
+      if (!r) continue;
+      var alt = (r[0] && typeof r[0].transcript === "string") ? r[0].transcript : "";
+      if (r.isFinal) addFinalSegment(finals, alt);
+      else interim += alt;
+    }
+    return { finals: finals, interim: normSpeech(interim) };
+  }
 
   var ERR_MSG = {
     "not-allowed": "마이크 사용이 차단되어 있어요. 주소창 옆 자물쇠(⋮) → 마이크 → 허용으로 바꿔 주세요.",
@@ -794,16 +848,49 @@
     rec = null;
   }
 
+  // 발화가 끝나 인식이 스스로 종료됐을 때: 다시 켜지 않고 조용히 마무리
+  function finishListening(){
+    setListeningUI(false);
+    clearTimeout(micWatchdog);
+    clearTimeout(restartTimer);
+    if (rec) {
+      try { rec.stop(); } catch(e) {}
+      try { rec.abort(); } catch(e) {}
+    }
+    rec = null;
+    setBadge("", false);
+  }
+
+  // 데스크톱에서 자동 재시작할 때: 지금까지의 확정값을 접두어에 한 번만 접어 넣는다.
+  // (입력창 전체를 접두어로 삼으면 재시작 뒤 같은 내용이 또 붙는다)
+  function commitSpeechBase(){
+    var finalText = normSpeech(speechSegs.join(" "));
+    speechBase = normSpeech((speechBase ? speechBase + " " : "") + finalText);
+    speechSegs = [];
+    speechShown = speechBase;
+    if (normSpeech(inputEl.value) !== speechBase) {
+      inputEl.value = speechBase;
+      autosize();
+      updateSrcLine();
+    }
+  }
+
   function startListening(){
     if (!SR) { micUnavailableHint(); return; }
     if (listening) { stopListening(); return; }
 
-    heardFinal = inputEl.value.trim();
-    if (heardFinal) heardFinal += " ";
+    speechBase = normSpeech(inputEl.value);
+    speechSegs = [];
+    speechShown = speechBase;
+    speechSent = speechBase;
+    restartCount = 0;
+
     rec = new SR();
     rec.lang = bcp(state.src === "auto" ? "ko" : state.src);
     rec.interimResults = true;
-    rec.continuous = true;
+    // 안드로이드 크롬은 continuous = true 에서 확정 세그먼트를 누적·중복으로 내보내므로
+    // 한 발화만 듣고 끝낸다. 데스크톱은 기존처럼 계속 듣는다.
+    rec.continuous = !IS_ANDROID;
     rec.maxAlternatives = 1;
 
     var started = false;
@@ -816,16 +903,27 @@
     };
     rec.onresult = function(e){
       clearTimeout(micWatchdog);
-      var interim = "";
-      for (var i = e.resultIndex; i < e.results.length; i++) {
-        var r = e.results[i];
-        if (r.isFinal) heardFinal += r[0].transcript + " ";
-        else interim += r[0].transcript;
+      restartCount = 0;
+
+      var got = collectSpeech(e.results);
+      speechSegs = got.finals;
+
+      var finalText = normSpeech(speechSegs.join(" "));
+      var full = normSpeech((speechBase ? speechBase + " " : "") + finalText);
+      var shown = normSpeech(full + " " + got.interim);
+
+      if (shown !== speechShown) {
+        speechShown = shown;
+        inputEl.value = shown;
+        autosize();
+        updateSrcLine();
       }
-      inputEl.value = (heardFinal + interim).replace(/\s+/g, " ").trim();
-      autosize();
-      updateSrcLine();
-      if (heardFinal.trim()) runTranslate(heardFinal.trim());
+
+      // 확정 텍스트가 실제로 달라졌을 때만 번역 (같은 문장 반복 호출 방지)
+      if (full && full !== speechSent) {
+        speechSent = full;
+        runTranslate(full);
+      }
     };
     rec.onerror = function(e){
       var code = e && e.error ? e.error : "unknown";
@@ -847,13 +945,22 @@
     };
     rec.onend = function(){
       clearTimeout(micWatchdog);
-      if (listening) {
-        // 안드로이드에서 잠깐 끊기는 경우가 있어 자동 재시작
-        restartTimer = setTimeout(function(){
-          if (!listening) return;
-          try { rec.start(); } catch(e) { setListeningUI(false); }
-        }, 300);
+      if (!listening) return;
+
+      if (IS_ANDROID) {
+        // 안드로이드는 한 발화가 끝나면 스스로 끝난다. 자동 재시작하지 않고 깔끔히 종료.
+        finishListening();
+        return;
       }
+
+      // 데스크톱: 확정값을 한 번만 접어 두고 다시 듣기 (꺼졌다 켜지는 루프 방지 상한)
+      if (restartCount >= 5) { finishListening(); return; }
+      restartTimer = setTimeout(function(){
+        if (!listening) return;
+        restartCount++;
+        commitSpeechBase();
+        try { rec.start(); } catch(err) { finishListening(); }
+      }, 250);
     };
 
     try {
