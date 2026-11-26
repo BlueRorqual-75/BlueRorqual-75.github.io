@@ -525,7 +525,8 @@
     filter: 'all',
     starting: false,
     modalClipId: null,
-    modalUrl: null
+    modalUrl: null,
+    modalFix: null
   };
 
   /* ================= UI: tabs ================= */
@@ -1218,10 +1219,21 @@
     state.modalClipId = clip.id;
     $('modalTitle').textContent = fmtDateTime(clip.createdAt);
     v.src = state.modalUrl;
-    // webm 길이(무한대) 문제 보정
+    // 일부 브라우저에서 MediaRecorder webm의 길이가 Infinity로 나오는 문제 보정
     v.onloadedmetadata = function(){
       if (v.duration === Infinity || isNaN(v.duration)) {
         try { v.currentTime = 1e101; } catch (e) {}
+        var fix = function(){
+          if (isFinite(v.duration) && v.duration > 0) {
+            try { v.currentTime = 0; } catch (e) {}
+          }
+          v.removeEventListener('durationchange', fix);
+          v.removeEventListener('seeked', fix);
+          state.modalFix = null;
+        };
+        state.modalFix = fix;
+        v.addEventListener('durationchange', fix);
+        v.addEventListener('seeked', fix);
       }
     };
     $('modal').classList.add('show');
@@ -1245,6 +1257,11 @@
   });
   function closeModal(){
     var v = $('modalVideo');
+    if (state.modalFix) {
+      v.removeEventListener('durationchange', state.modalFix);
+      v.removeEventListener('seeked', state.modalFix);
+      state.modalFix = null;
+    }
     try { v.pause(); } catch (e) {}
     v.removeAttribute('src');
     try { v.load(); } catch (e) {}
