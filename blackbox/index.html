@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#07080a" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<title>블랙박스</title>
+<style>
+  :root{
+    --bg:#07080a; --panel:#12151a; --panel2:#1a1e25; --line:rgba(255,255,255,.09);
+    --txt:#f2f5f8; --muted:#8b95a3; --red:#ff3b30; --green:#25d366; --amber:#f5a524;
+    --accent:#2f81f7; --radius:18px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    display:flex;flex-direction:column;height:100dvh;overflow:hidden;
+  }
+  button{font-family:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+  .app{display:flex;flex-direction:column;height:100%;min-height:0}
+
+  /* ---------- top bar ---------- */
+  .topbar{
+    flex:0 0 auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+    padding:calc(8px + env(safe-area-inset-top)) 14px 8px;
+    border-bottom:1px solid var(--line);background:rgba(7,8,10,.92);
+  }
+  .brand{font-size:15px;font-weight:800;letter-spacing:-.02em;margin-right:auto}
+  .badge{
+    display:none;align-items:center;gap:5px;font-size:10.5px;font-weight:700;
+    padding:4px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);
+    background:rgba(255,255,255,.04);white-space:nowrap;
+  }
+  .badge.show{display:inline-flex}
+  .badge.rec{color:#fff;background:rgba(255,59,48,.16);border-color:rgba(255,59,48,.5)}
+  .badge.rec .dot{width:7px;height:7px;border-radius:50%;background:var(--red);animation:blink 1s steps(2,start) infinite}
+  .badge.gps{color:#9fe3b8;border-color:rgba(37,211,102,.35);background:rgba(37,211,102,.1)}
+  .badge.gps.off{color:var(--muted);border-color:var(--line);background:rgba(255,255,255,.04)}
+  .badge.wake{color:#cfe0ff;border-color:rgba(47,129,247,.45);background:rgba(47,129,247,.14)}
+  @keyframes blink{0%{opacity:1}50%{opacity:.15}100%{opacity:1}}
+
+  /* ---------- main ---------- */
+  main{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 14px 18px}
+  .view{display:none}
+  .view.active{display:block}
+
+  .stage{
+    position:relative;width:100%;height:clamp(190px,42vh,380px);
+    background:#000;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;
+  }
+  .stage video{width:100%;height:100%;object-fit:cover;display:block;background:#000}
+  .stage-empty{
+    position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:6px;color:#5c6675;font-size:12.5px;text-align:center;padding:18px;line-height:1.5;
+    background:repeating-linear-gradient(135deg,#0c0f13 0 12px,#0a0c10 12px 24px);
+  }
+  .stage-empty .cam{font-size:34px;opacity:.5;line-height:1}
+  .hud{
+    position:absolute;inset:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;
+    padding:10px 12px;text-shadow:0 1px 4px rgba(0,0,0,.85);
+  }
+  .hud-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+  .hud-rec{
+    display:none;align-items:center;gap:6px;font-size:12px;font-weight:800;letter-spacing:.04em;
+    color:#fff;background:rgba(0,0,0,.42);border:1px solid rgba(255,59,48,.55);
+    padding:4px 9px;border-radius:999px;backdrop-filter:blur(4px);
+  }
+  .hud-rec.show{display:inline-flex}
+  .hud-rec .dot{width:8px;height:8px;border-radius:50%;background:var(--red);animation:blink 1s steps(2,start) infinite}
+  .hud-rec .segtime{font-variant-numeric:tabular-nums;font-weight:700;color:#ffd7d5}
+  .hud-datetime{
+    font-size:11.5px;font-weight:700;color:#e7edf5;font-variant-numeric:tabular-nums;
+    background:rgba(0,0,0,.4);padding:4px 8px;border-radius:8px;backdrop-filter:blur(4px);
+  }
+  .hud-bottom{display:flex;align-items:flex-end;justify-content:space-between;gap:8px}
+  .hud-speed{display:flex;align-items:baseline;gap:4px;background:rgba(0,0,0,.4);padding:2px 10px;border-radius:12px;backdrop-filter:blur(4px)}
+  .hud-speed b{font-size:30px;line-height:1.15;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .hud-speed small{font-size:11px;color:#b9c3d0;font-weight:700}
+  .hud-lock{
+    font-size:11px;font-weight:800;padding:5px 9px;border-radius:999px;
+    background:rgba(0,0,0,.45);color:#c8d2de;border:1px solid rgba(255,255,255,.16);backdrop-filter:blur(4px);
+  }
+  .hud-lock.on{color:#fff;background:rgba(255,59,48,.85);border-color:rgba(255,59,48,.9);animation:pulse 1.2s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+  .flash{position:absolute;inset:0;background:rgba(255,40,30,.5);opacity:0;pointer-events:none;transition:opacity .16s ease}
+  .flash.on{opacity:1}
+
+  /* ---------- controls ---------- */
+  .controls{display:flex;gap:10px;margin-top:12px}
+  .record-btn{
+    flex:1 1 auto;min-height:54px;border-radius:16px;font-size:16px;font-weight:800;letter-spacing:-.01em;
+    background:linear-gradient(180deg,#ff4b41,#d31f16);color:#fff;
+    box-shadow:0 8px 22px rgba(255,59,48,.28);border:1px solid rgba(255,255,255,.16);
+    transition:transform .1s ease,filter .15s ease;display:flex;align-items:center;justify-content:center;gap:8px;
+  }
+  .record-btn:disabled{filter:grayscale(.6) brightness(.7);box-shadow:none}
+  .record-btn:active{transform:scale(.985)}
+  .record-btn.recording{background:linear-gradient(180deg,#2b313b,#1b2028);border-color:rgba(255,59,48,.55);box-shadow:inset 0 0 0 1px rgba(255,59,48,.35)}
+  .emergency-btn{
+    flex:0 0 auto;min-height:54px;padding:0 14px;border-radius:16px;font-size:13.5px;font-weight:800;
+    background:rgba(255,59,48,.1);border:1px solid rgba(255,59,48,.45);color:#ff8a83;
+    display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap;
+  }
+  .emergency-btn:disabled{opacity:.42}
+  .emergency-btn.on{background:rgba(255,59,48,.9);color:#fff}
+
+  .quickbar{
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+    margin-top:10px;padding:9px 12px;border-radius:12px;background:var(--panel);border:1px solid var(--line);
+    font-size:11.5px;color:var(--muted);
+  }
+  .quickbar b{color:#dfe6ef;font-weight:700}
+  .quickbar .sep{color:#3a414c}
+
+  /* ---------- settings ---------- */
+  details.settings{margin-top:10px;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  details.settings>summary{
+    list-style:none;padding:13px 14px;font-size:13.5px;font-weight:700;display:flex;align-items:center;justify-content:space-between;
+  }
+  details.settings>summary::-webkit-details-marker{display:none}
+  details.settings>summary::after{content:"▾";color:var(--muted);font-size:12px;transition:transform .15s ease}
+  details.settings[open]>summary::after{transform:rotate(180deg)}
+  .set-body{padding:2px 14px 14px;border-top:1px solid var(--line)}
+  .set-row{padding:10px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+  .set-row:last-child{border-bottom:0}
+  .set-label{font-size:12px;color:var(--muted);margin-bottom:7px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .set-label i{font-style:normal;color:#5b6472;font-size:10.5px}
+  .seg{display:flex;gap:6px;flex-wrap:wrap}
+  .seg button{
+    flex:1 1 0;min-width:62px;padding:9px 6px;border-radius:10px;font-size:12.5px;font-weight:700;
+    background:rgba(255,255,255,.045);border:1px solid var(--line);color:#b7c1ce;text-align:center;
+  }
+  .seg button.on{background:rgba(47,129,247,.2);border-color:rgba(47,129,247,.65);color:#dbe9ff}
+  .seg.danger button.on{background:rgba(255,59,48,.2);border-color:rgba(255,59,48,.6);color:#ffd3d0}
+  .hint{font-size:11.5px;color:#6d7684;line-height:1.55;margin-top:10px}
+
+  .notice{
+    margin-top:10px;padding:12px 13px;border-radius:12px;background:rgba(245,165,36,.07);
+    border:1px solid rgba(245,165,36,.28);font-size:11.5px;line-height:1.65;color:#d9c39a;
+  }
+  .notice b{display:block;color:#f5cf8e;font-size:12px;margin-bottom:4px}
+  .notice ul{margin:0;padding-left:16px}
+  .notice li{margin:2px 0}
+
+  /* ---------- clips ---------- */
+  .clipbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+  .storage{font-size:12px;color:var(--muted)}
+  .storage b{color:#dfe6ef}
+  .filters{display:flex;gap:6px}
+  .filters button{
+    font-size:12px;font-weight:700;padding:7px 11px;border-radius:999px;
+    background:rgba(255,255,255,.045);border:1px solid var(--line);color:#a9b4c2;
+  }
+  .filters button.on{background:rgba(47,129,247,.2);border-color:rgba(47,129,247,.6);color:#dbe9ff}
+
+  .clip{
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 13px;margin-bottom:9px;
+  }
+  .clip.locked{border-color:rgba(255,59,48,.42);background:rgba(255,59,48,.055)}
+  .clip-head{display:flex;align-items:center;gap:7px;margin-bottom:5px}
+  .clip-time{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  .clip-lock{font-size:10px;font-weight:800;padding:2px 6px;border-radius:5px;background:rgba(255,59,48,.85);color:#fff}
+  .clip-meta{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;margin-bottom:10px}
+  .clip-actions{display:flex;gap:6px}
+  .clip-actions button{
+    flex:1 1 0;padding:9px 4px;border-radius:9px;font-size:12px;font-weight:700;
+    background:rgba(255,255,255,.055);border:1px solid var(--line);color:#c8d2de;
+  }
+  .clip-actions button.primary{background:rgba(47,129,247,.18);border-color:rgba(47,129,247,.5);color:#dbe9ff}
+  .clip-actions button.del{color:#ff8a83;border-color:rgba(255,59,48,.28);background:rgba(255,59,48,.08)}
+  .empty{
+    text-align:center;color:#5c6675;font-size:12.5px;line-height:1.7;padding:34px 16px;
+    border:1px dashed var(--line);border-radius:14px;
+  }
+  .danger-zone{margin-top:14px;display:flex;gap:8px;flex-wrap:wrap}
+  .danger-zone button{
+    flex:1 1 auto;padding:12px;border-radius:11px;font-size:12.5px;font-weight:700;
+    background:rgba(255,59,48,.08);border:1px solid rgba(255,59,48,.3);color:#ff9c96;
+  }
+
+  /* ---------- tab bar ---------- */
+  .tabbar{
+    flex:0 0 auto;display:flex;border-top:1px solid var(--line);background:rgba(9,11,14,.97);
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .tabbar button{
+    flex:1 1 0;padding:15px 6px;font-size:12.5px;font-weight:700;color:#6d7684;
+    border-top:2px solid transparent;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:5px;
+  }
+  .tabbar button.on{color:#fff;border-top-color:var(--accent)}
+  .tabbar button .n{font-size:11.5px;color:#8b95a3;font-weight:700}
+
+  /* ---------- modal ---------- */
+  .modal{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.82);backdrop-filter:blur(3px)}
+  .modal.show{display:flex}
+  .modal-panel{width:100%;max-width:560px;background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:12px;box-shadow:0 24px 60px rgba(0,0,0,.6)}
+  .modal-panel video{width:100%;max-height:62vh;background:#000;border-radius:10px;display:block}
+  .modal-title{font-size:13px;font-weight:700;margin:2px 2px 8px;font-variant-numeric:tabular-nums}
+  .modal-meta{font-size:11.5px;color:var(--muted);margin:8px 2px 10px}
+  .modal-actions{display:flex;gap:7px}
+  .modal-actions button{flex:1 1 0;padding:11px 6px;border-radius:10px;font-size:12.5px;font-weight:700;background:rgba(255,255,255,.06);border:1px solid var(--line)}
+  .modal-actions button.primary{background:rgba(47,129,247,.2);border-color:rgba(47,129,247,.55);color:#dbe9ff}
+
+  /* ---------- toast ---------- */
+  #toast{
+    position:fixed;left:50%;bottom:calc(74px + env(safe-area-inset-bottom));transform:translate(-50%,10px);
+    z-index:80;max-width:88vw;padding:10px 15px;border-radius:999px;
+    background:rgba(28,33,41,.97);border:1px solid var(--line);color:#eaf0f7;
+    font-size:12.5px;font-weight:700;text-align:center;line-height:1.4;
+    opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease;
+  }
+  #toast.show{opacity:1;transform:translate(-50%,0)}
+
+  /* ---------- landscape ---------- */
+  @media (orientation:landscape) and (max-height:560px){
+    main{padding:8px 12px 12px}
+    .stage{height:calc(100dvh - 226px);min-height:130px}
+    .controls{margin-top:8px}
+    .record-btn,.emergency-btn{min-height:46px;font-size:14px}
+    .quickbar{margin-top:8px;padding:7px 11px}
+    details.settings,.notice{margin-top:8px}
+  }
+  @media (min-width:620px){
+    main{padding:16px 22px 22px;max-width:720px;margin:0 auto;width:100%}
+    .clip-actions button{flex:0 0 auto;padding:9px 16px}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">🚘 블랙박스</div>
+    <span class="badge rec" id="badgeRec"><span class="dot"></span>REC</span>
+    <span class="badge gps off" id="badgeGps">GPS --</span>
+    <span class="badge wake" id="badgeWake">화면 꺼짐 방지 켜짐</span>
+  </header>
+
+  <main>
+    <!-- ============ 녹화 화면 ============ -->
+    <section class="view active" id="viewRecord">
+      <div class="stage" id="stage">
+        <video id="preview" autoplay muted playsinline></video>
+        <div class="stage-empty" id="stageEmpty">
+          <span class="cam">📷</span>
+          <span>카메라 미리보기</span>
+          <span>아래 <b>녹화 시작</b>을 누르면 바로 녹화합니다</span>
+        </div>
+        <div class="hud">
+          <div class="hud-top">
+            <span class="hud-rec" id="hudRec"><span class="dot"></span>REC <span class="segtime" id="hudSegTime">00:00</span></span>
+            <span class="hud-datetime" id="hudDateTime">----</span>
+          </div>
+          <div class="hud-bottom">
+            <span class="hud-speed"><b id="hudSpeed">--</b><small>km/h</small></span>
+            <span class="hud-lock" id="hudLock">일반</span>
+          </div>
+        </div>
+        <div class="flash" id="flash"></div>
+      </div>
+
+      <div class="controls">
+        <button type="button" class="record-btn" id="btnRecord">● 녹화 시작</button>
+        <button type="button" class="emergency-btn" id="btnEmergency" disabled>🚨 긴급 잠금</button>
+      </div>
+
+      <div class="quickbar">
+        <span>저장 <b id="qCount">0</b> / <b id="qMax">10</b>개</span>
+        <span class="sep">·</span>
+        <span>긴급 <b id="qLocked">0</b></span>
+        <span class="sep">·</span>
+        <span>사용 <b id="qSize">0 MB</b></span>
+      </div>
+
+      <details class="settings" id="settings">
+        <summary>설정</summary>
+        <div class="set-body">
+          <div class="set-row">
+            <div class="set-label">구간 길이 <i>루프 한 칸 길이</i></div>
+            <div class="seg" data-key="segmentSec">
+              <button type="button" data-value="60">1분</button>
+              <button type="button" data-value="180">3분</button>
+              <button type="button" data-value="300">5분</button>
+            </div>
+          </div>
+          <div class="set-row">
+            <div class="set-label">최대 저장 개수 <i>넘으면 오래된 일반 영상 삭제</i></div>
+            <div class="seg" data-key="maxClips">
+              <button type="button" data-value="5">5개</button>
+              <button type="button" data-value="10">10개</button>
+              <button type="button" data-value="20">20개</button>
+            </div>
+          </div>
+          <div class="set-row">
+            <div class="set-label">해상도 <i>다음 녹화부터 적용</i></div>
+            <div class="seg" data-key="height">
+              <button type="button" data-value="720">720p</button>
+              <button type="button" data-value="1080">1080p</button>
+            </div>
+          </div>
+          <div class="set-row">
+            <div class="set-label">마이크 <i>다음 녹화부터 적용</i></div>
+            <div class="seg" data-key="mic">
+              <button type="button" data-value="0">음소거</button>
+              <button type="button" data-value="1">녹음</button>
+            </div>
+          </div>
+          <div class="set-row">
+            <div class="set-label">충격 감지 <i>충격 시 자동 긴급 잠금</i></div>
+            <div class="seg danger" data-key="sensitivity">
+              <button type="button" data-value="sensitive">민감</button>
+              <button type="button" data-value="normal">보통</button>
+              <button type="button" data-value="dull">둔감</button>
+              <button type="button" data-value="off">끄기</button>
+            </div>
+          </div>
+          <div class="hint" id="sensorHint">충격 감지·화면 꺼짐 방지는 기기 브라우저 지원에 따라 동작합니다.</div>
+        </div>
+      </details>
+
+      <div class="notice">
+        <b>알아두세요</b>
+        <ul>
+          <li>화면이 꺼지거나 다른 앱으로 이동하면 브라우저 정책상 녹화가 중단됩니다.</li>
+          <li>브라우저 저장소(IndexedDB)에 루프 저장되며, 중요한 영상은 '저장' 버튼으로 기기 다운로드 폴더에 보관하세요.</li>
+          <li>영상은 이 휴대폰 안에만 저장되고 서버로 전송되지 않습니다.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============ 저장된 영상 ============ -->
+    <section class="view" id="viewClips">
+      <div class="clipbar">
+        <div class="storage">사용 중: <b id="storageSize">0 MB</b></div>
+        <div class="filters">
+          <button type="button" data-filter="all" class="on">전체</button>
+          <button type="button" data-filter="locked">🚨 긴급잠금</button>
+        </div>
+      </div>
+      <div id="clipList"></div>
+      <div class="danger-zone">
+        <button type="button" id="btnClearUnlocked">일반 영상 전체 삭제</button>
+      </div>
+      <div class="notice" style="margin-top:14px">
+        <b>저장 위치</b>
+        <ul>
+          <li>여기 목록은 브라우저 저장소에 있는 영상입니다. 브라우저 데이터를 지우면 함께 사라집니다.</li>
+          <li>'저장'을 누르면 휴대폰 다운로드 폴더로 내려받아 영구 보관할 수 있습니다.</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tabbar">
+    <button type="button" data-view="record" class="on">녹화 화면</button>
+    <button type="button" data-view="clips">저장된 영상 <span class="n" id="tabCount">(0)</span></button>
+  </nav>
+</div>
+
+<div class="modal" id="modal">
+  <div class="modal-panel">
+    <div class="modal-title" id="modalTitle">영상</div>
+    <video id="modalVideo" controls playsinline></video>
+    <div class="modal-meta" id="modalMeta"></div>
+    <div class="modal-actions">
+      <button type="button" id="modalDownload" class="primary">저장(다운로드)</button>
+      <button type="button" id="modalLock">잠금</button>
+      <button type="button" id="modalClose">닫기</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+  'use strict';
+
+  /* ================= helpers ================= */
+  function $(id){ return document.getElementById(id); }
+  function pad2(n){ return n < 10 ? '0' + n : '' + n; }
+  function fmtDateTime(ms){
+    var d = new Date(ms);
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + ' ' +
+           pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+  }
+  function fmtStamp(ms){
+    var d = new Date(ms);
+    return d.getFullYear() + pad2(d.getMonth() + 1) + pad2(d.getDate()) + '_' +
+           pad2(d.getHours()) + pad2(d.getMinutes()) + pad2(d.getSeconds());
+  }
+  function fmtClock(sec){
+    sec = Math.max(0, Math.floor(sec));
+    var h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+    return h > 0 ? (h + ':' + pad2(m) + ':' + pad2(s)) : (pad2(m) + ':' + pad2(s));
+  }
+  function fmtDuration(sec){
+    sec = Math.max(0, Math.round(sec));
+    var m = Math.floor(sec / 60), s = sec % 60;
+    return (m > 0 ? (m + '분 ' + (s ? s + '초' : '')) : (s + '초')).replace(/\s+$/, '');
+  }
+  function fmtSize(b){
+    if (!b) return '0 KB';
+    if (b < 1024 * 1024) return Math.max(1, Math.round(b / 1024)) + ' KB';
+    return (b / 1024 / 1024).toFixed(1) + ' MB';
+  }
+  var toastTimer = null;
+  function toast(msg, ms){
+    var t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ t.classList.remove('show'); }, ms || 2200);
+  }
+  function haversine(a, b){
+    var R = 6371000, toRad = Math.PI / 180;
+    var dLat = (b.lat - a.lat) * toRad, dLon = (b.lon - a.lon) * toRad;
+    var la1 = a.lat * toRad, la2 = b.lat * toRad;
+    var h = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(la1) * Math.cos(la2) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+  }
+
+  /* ================= settings ================= */
+  var DEFAULTS = { segmentSec: 60, maxClips: 10, height: 720, mic: 0, sensitivity: 'normal' };
+  var SETTINGS_KEY = 'blackbox_settings_v1';
+  var settings = (function(){
+    var out = {};
+    for (var k in DEFAULTS) out[k] = DEFAULTS[k];
+    try {
+      var raw = localStorage.getItem(SETTINGS_KEY);
+      if (raw) {
+        var saved = JSON.parse(raw);
+        for (var key in DEFAULTS) {
+          if (saved[key] !== undefined && saved[key] !== null) out[key] = saved[key];
+        }
+      }
+    } catch (e) {}
+    out.segmentSec = Number(out.segmentSec) || DEFAULTS.segmentSec;
+    out.maxClips = Number(out.maxClips) || DEFAULTS.maxClips;
+    out.height = Number(out.height) || DEFAULTS.height;
+    out.mic = Number(out.mic) ? 1 : 0;
+    return out;
+  })();
+  function saveSettings(){
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {}
+  }
+
+  /* ================= IndexedDB ================= */
+  var DB_NAME = 'blackbox_db', DB_VERSION = 1, STORE = 'clips';
+  var dbPromise = null;
+  function openDb(){
+    if (dbPromise) return dbPromise;
+    dbPromise = new Promise(function(resolve, reject){
+      if (!window.indexedDB) { reject(new Error('이 브라우저는 IndexedDB를 지원하지 않습니다')); return; }
+      var req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = function(){
+        var db = req.result;
+        if (!db.objectStoreNames.contains(STORE)) {
+          var st = db.createObjectStore(STORE, { keyPath: 'id' });
+          st.createIndex('createdAt', 'createdAt', { unique: false });
+        }
+      };
+      req.onsuccess = function(){ resolve(req.result); };
+      req.onerror = function(){ reject(req.error || new Error('DB 열기 실패')); };
+    });
+    return dbPromise;
+  }
+  function dbAll(){
+    return openDb().then(function(db){
+      return new Promise(function(resolve, reject){
+        var tx = db.transaction(STORE, 'readonly');
+        var rq = tx.objectStore(STORE).getAll();
+        rq.onsuccess = function(){ resolve(rq.result || []); };
+        rq.onerror = function(){ reject(rq.error); };
+      });
+    });
+  }
+  function dbAdd(clip){
+    return openDb().then(function(db){
+      return new Promise(function(resolve, reject){
+        var tx = db.transaction(STORE, 'readwrite');
+        tx.objectStore(STORE).put(clip);
+        tx.oncomplete = function(){ resolve(clip); };
+        tx.onerror = function(){ reject(tx.error); };
+      });
+    });
+  }
+  function dbDelete(id){
+    return openDb().then(function(db){
+      return new Promise(function(resolve, reject){
+        var tx = db.transaction(STORE, 'readwrite');
+        tx.objectStore(STORE).delete(id);
+        tx.oncomplete = function(){ resolve(true); };
+        tx.onerror = function(){ reject(tx.error); };
+      });
+    });
+  }
+
+  /* ================= state ================= */
+  var state = {
+    stream: null,
+    previewReady: false,
+    recorder: null,
+    chunks: [],
+    recording: false,
+    segStart: 0,
+    segTimer: null,
+    segMaxSpeed: 0,
+    segLocked: false,
+    currentSpeed: null,
+    lastPos: null,
+    gpsWatch: null,
+    gpsStatus: 'idle',
+    wakeLock: null,
+    wakeStatus: 'idle',
+    motionAttached: false,
+    lastImpact: 0,
+    clips: [],
+    filter: 'all',
+    starting: false,
+    modalClipId: null,
+    modalUrl: null
+  };
+
+  /* ================= UI: tabs ================= */
+  var tabButtons = document.querySelectorAll('.tabbar button');
+  Array.prototype.forEach.call(tabButtons, function(btn){
+    btn.addEventListener('click', function(){
+      setView(btn.getAttribute('data-view'));
+    });
+  });
+  function setView(name){
+    Array.prototype.forEach.call(tabButtons, function(b){
+      b.classList.toggle('on', b.getAttribute('data-view') === name);
+    });
+    $('viewRecord').classList.toggle('active', name === 'record');
+    $('viewClips').classList.toggle('active', name === 'clips');
+    if (name === 'clips') refreshClips();
+    window.scrollTo(0, 0);
+  }
+
+  /* ================= settings UI ================= */
+  function renderSettings(){
+    var groups = document.querySelectorAll('.seg');
+    Array.prototype.forEach.call(groups, function(g){
+      var key = g.getAttribute('data-key');
+      Array.prototype.forEach.call(g.querySelectorAll('button'), function(b){
+        b.classList.toggle('on', String(settings[key]) === b.getAttribute('data-value'));
+      });
+    });
+    $('qMax').textContent = settings.maxClips;
+    var hint = [];
+    if (!('wakeLock' in navigator) || !navigator.wakeLock) hint.push('이 브라우저는 화면 꺼짐 방지를 지원하지 않습니다.');
+    if (!window.DeviceMotionEvent) hint.push('이 기기에서는 충격 감지를 쓸 수 없습니다.');
+    $('sensorHint').textContent = hint.length ? hint.join(' ') : '충격 감지·화면 꺼짐 방지는 기기 브라우저 지원에 따라 동작합니다.';
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('.seg'), function(g){
+    g.addEventListener('click', function(ev){
+      var btn = ev.target.closest ? ev.target.closest('button') : null;
+      if (!btn || !g.contains(btn)) return;
+      var key = g.getAttribute('data-key');
+      var raw = btn.getAttribute('data-value');
+      setSetting(key, raw);
+    });
+  });
+  function setSetting(key, raw){
+    if (key === 'segmentSec' || key === 'maxClips' || key === 'height' || key === 'mic') {
+      settings[key] = Number(raw);
+    } else {
+      settings[key] = raw;
+    }
+    saveSettings();
+    renderSettings();
+
+    if (key === 'segmentSec' && state.recording) {
+      clearTimeout(state.segTimer);
+      var elapsed = (Date.now() - state.segStart) / 1000;
+      var remain = settings.segmentSec - elapsed;
+      if (remain <= 0) { rotateSegment(); }
+      else { state.segTimer = setTimeout(function(){ if (state.recording) rotateSegment(); }, remain * 1000); }
+      toast('구간 길이를 ' + Math.round(settings.segmentSec / 60) + '분으로 바꿨습니다');
+    } else if (key === 'maxClips') {
+      enforceLoopLimit().then(refreshClips);
+      toast('최대 ' + settings.maxClips + '개까지 저장합니다');
+    } else if (key === 'height' && state.recording) {
+      toast('해상도는 다음 녹화부터 적용됩니다');
+    } else if (key === 'mic' && state.recording) {
+      toast('마이크 설정은 다음 녹화부터 적용됩니다');
+    } else if (key === 'sensitivity') {
+      if (state.recording) { detachMotion(); startMotion(); }
+      toast(settings.sensitivity === 'off' ? '충격 감지를 껐습니다' : '충격 감지: ' + btnLabel(key, settings.sensitivity));
+    }
+  }
+  function btnLabel(key, val){
+    var map = { sensitive: '민감', normal: '보통', dull: '둔감', off: '끄기' };
+    return map[val] || val;
+  }
+
+  /* ================= camera ================= */
+  function pickMime(){
+    if (!window.MediaRecorder) return '';
+    var withAudio = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm;codecs=h264', 'video/webm', 'video/mp4'];
+    var noAudio = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4'];
+    var list = settings.mic ? withAudio : noAudio;
+    for (var i = 0; i < list.length; i++) {
+      try { if (MediaRecorder.isTypeSupported(list[i])) return list[i]; } catch (e) {}
+    }
+    return '';
+  }
+  function extForMime(mime){
+    if (mime && mime.indexOf('mp4') >= 0) return 'mp4';
+    return 'webm';
+  }
+  function bitrateFor(h){
+    return h >= 1080 ? 4500000 : 2200000;
+  }
+  function cameraErrorText(err){
+    var name = (err && err.name) || '';
+    if (name === 'NotAllowedError' || name === 'SecurityError') {
+      return '카메라 권한이 거부되었습니다. 주소창 왼쪽 자물쇠(ⓘ) → 권한 → 카메라를 허용한 뒤 다시 시도해 주세요.';
+    }
+    if (name === 'NotFoundError' || name === 'OverconstrainedError') return '카메라를 찾을 수 없습니다.';
+    if (name === 'NotReadableError') return '다른 앱이 카메라를 쓰고 있습니다. 카메라 앱을 닫고 다시 시도해 주세요.';
+    return '카메라를 열 수 없습니다: ' + ((err && err.message) || name || '알 수 없는 오류');
+  }
+  function startCamera(){
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      return Promise.reject(new Error('이 브라우저에서는 카메라를 쓸 수 없습니다. https:// 주소 또는 Chrome에서 열어 주세요.'));
+    }
+    var h = settings.height;
+    var constraints = {
+      video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: Math.round(h * 16 / 9) },
+        height: { ideal: h },
+        frameRate: { ideal: 30, max: 30 }
+      },
+      audio: settings.mic ? { echoCancellation: true, noiseSuppression: true } : false
+    };
+    return navigator.mediaDevices.getUserMedia(constraints).catch(function(err){
+      if (err && (err.name === 'OverconstrainedError' || err.name === 'TypeError')) {
+        return navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: settings.mic ? true : false });
+      }
+      throw err;
+    });
+  }
+  function attachStream(stream){
+    state.stream = stream;
+    var v = $('preview');
+    v.srcObject = stream;
+    var p = v.play();
+    if (p && p.catch) p.catch(function(){});
+    $('stageEmpty').style.display = 'none';
+    state.previewReady = true;
+    Array.prototype.forEach.call(stream.getVideoTracks(), function(track){
+      track.addEventListener('ended', function(){
+        if (state.recording) {
+          toast('카메라가 중단되어 녹화를 멈췄습니다', 3200);
+          stopRecording(true);
+        }
+      });
+    });
+  }
+
+  /* ================= recording ================= */
+  function startRecording(){
+    if (state.recording || state.starting) return;
+    if (!window.MediaRecorder) {
+      toast('이 브라우저는 영상 녹화(MediaRecorder)를 지원하지 않습니다', 3200);
+      return;
+    }
+    state.starting = true;
+    $('btnRecord').disabled = true;
+    $('btnRecord').textContent = '카메라 준비 중…';
+
+    startCamera().then(function(stream){
+      attachStream(stream);
+      state.recording = true;
+      state.starting = false;
+      $('btnRecord').disabled = false;
+      $('btnRecord').classList.add('recording');
+      $('btnRecord').innerHTML = '■ 녹화 중지';
+      $('btnEmergency').disabled = false;
+      $('badgeRec').classList.add('show');
+      $('hudRec').classList.add('show');
+      startGps();
+      requestWakeLock();
+      startMotion();
+      startSegment();
+      toast('녹화를 시작했습니다 · ' + Math.round(settings.segmentSec / 60) + '분씩 저장');
+    }).catch(function(err){
+      state.starting = false;
+      $('btnRecord').disabled = false;
+      $('btnRecord').textContent = '● 녹화 시작';
+      var msg = cameraErrorText(err);
+      $('stageEmpty').style.display = '';
+      $('stageEmpty').innerHTML = '<span class="cam">⚠️</span><span>' + msg.replace(/</g, '&lt;') + '</span>';
+      toast(msg, 4200);
+    });
+  }
+
+  function startSegment(){
+    if (!state.stream || !state.recording) return;
+    var tracks = state.stream.getVideoTracks();
+    if (!tracks.length || tracks[0].readyState === 'ended') { stopRecording(true); return; }
+    var mime = pickMime();
+    var opts = mime ? { mimeType: mime, videoBitsPerSecond: bitrateFor(settings.height) } : { videoBitsPerSecond: bitrateFor(settings.height) };
+    var rec;
+    try {
+      rec = new MediaRecorder(state.stream, opts);
+    } catch (e) {
+      try { rec = new MediaRecorder(state.stream); }
+      catch (e2) { toast('녹화기를 만들 수 없습니다: ' + e2.message, 3200); stopRecording(true); return; }
+    }
+    state.chunks = [];
+    state.segStart = Date.now();
+    state.segMaxSpeed = 0;
+    state.segLocked = false;
+    updateLockHud();
+
+    rec.ondataavailable = function(ev){
+      if (ev.data && ev.data.size > 0) state.chunks.push(ev.data);
+    };
+    rec.onerror = function(){
+      toast('녹화 중 오류가 발생했습니다', 3000);
+    };
+    rec.onstop = function(){
+      var parts = state.chunks;
+      var mimeType = rec.mimeType || mime || 'video/webm';
+      state.chunks = [];
+      finalizeSegment(parts, mimeType).then(function(){
+        if (state.recording) startSegment();
+      }).catch(function(err){
+        toast('영상 저장 실패: ' + (err && err.message ? err.message : err), 3200);
+        if (state.recording) startSegment();
+      });
+    };
+    state.recorder = rec;
+    try { rec.start(1000); } catch (e) { toast('녹화를 시작할 수 없습니다: ' + e.message, 3200); return; }
+    clearTimeout(state.segTimer);
+    state.segTimer = setTimeout(function(){ if (state.recording) rotateSegment(); }, settings.segmentSec * 1000);
+  }
+
+  function rotateSegment(){
+    if (!state.recorder) return;
+    clearTimeout(state.segTimer);
+    state.segTimer = null;
+    try { if (state.recorder.state !== 'inactive') state.recorder.stop(); } catch (e) {}
+  }
+
+  function finalizeSegment(parts, mimeType){
+    clearTimeout(state.segTimer);
+    state.segTimer = null;
+    var durSec = Math.max(1, Math.round((Date.now() - state.segStart) / 1000));
+    var size = 0;
+    for (var i = 0; i < parts.length; i++) size += parts[i].size;
+    if (!parts.length || size === 0) return Promise.resolve(null);
+
+    var clip = {
+      id: 'c' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+      createdAt: Date.now(),
+      durationSec: durSec,
+      sizeBytes: size,
+      locked: !!state.segLocked,
+      maxSpeedKmh: Math.round(state.segMaxSpeed) || 0,
+      mimeType: mimeType,
+      blob: new Blob(parts, { type: mimeType.split(';')[0] })
+    };
+    return dbAdd(clip).then(function(){
+      if (clip.locked) toast('🚨 긴급 영상 저장됨 (자동 삭제 제외)', 2600);
+      return enforceLoopLimit();
+    }).then(function(){
+      return refreshClips();
+    }).then(function(){ return clip; });
+  }
+
+  function stopRecording(silent){
+    var wasRecording = state.recording;
+    state.recording = false;
+    clearTimeout(state.segTimer);
+    state.segTimer = null;
+    if (state.recorder && state.recorder.state !== 'inactive') {
+      try { state.recorder.stop(); } catch (e) {}
+    }
+    state.recorder = null;
+    stopGps();
+    releaseWakeLock();
+    detachMotion();
+    if (state.stream) {
+      try { state.stream.getTracks().forEach(function(t){ t.stop(); }); } catch (e) {}
+      state.stream = null;
+    }
+    var v = $('preview');
+    try { v.pause(); } catch (e) {}
+    v.srcObject = null;
+    state.previewReady = false;
+    $('stageEmpty').style.display = '';
+    $('stageEmpty').innerHTML = '<span class="cam">📷</span><span>카메라 미리보기</span><span>아래 <b>녹화 시작</b>을 누르면 바로 녹화합니다</span>';
+    $('btnRecord').classList.remove('recording');
+    $('btnRecord').disabled = false;
+    $('btnRecord').textContent = '● 녹화 시작';
+    $('btnEmergency').disabled = true;
+    $('btnEmergency').classList.remove('on');
+    $('badgeRec').classList.remove('show');
+    $('hudRec').classList.remove('show');
+    $('badgeGps').classList.remove('show');
+    $('hudSpeed').textContent = '--';
+    state.currentSpeed = null;
+    if (wasRecording && !silent) toast('녹화를 중지했습니다');
+    updateLockHud();
+  }
+
+  function updateLockHud(){
+    var el = $('hudLock');
+    if (state.segLocked) {
+      el.textContent = '🚨 긴급 잠금';
+      el.classList.add('on');
+      $('btnEmergency').classList.add('on');
+    } else {
+      el.textContent = state.recording ? '일반' : '대기';
+      el.classList.remove('on');
+      $('btnEmergency').classList.remove('on');
+    }
+  }
+
+  /* ================= emergency lock ================= */
+  function flashAndBeep(){
+    var f = $('flash');
+    f.classList.add('on');
+    setTimeout(function(){ f.classList.remove('on'); }, 260);
+    setTimeout(function(){ f.classList.add('on'); }, 380);
+    setTimeout(function(){ f.classList.remove('on'); }, 620);
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      if (!state.audioCtx) state.audioCtx = new AC();
+      var ctx = state.audioCtx;
+      if (ctx.state === 'suspended' && ctx.resume) ctx.resume();
+      var o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'square';
+      o.frequency.value = 880;
+      g.gain.value = 0.07;
+      o.connect(g); g.connect(ctx.destination);
+      o.start();
+      o.stop(ctx.currentTime + 0.18);
+    } catch (e) {}
+  }
+  function triggerEmergency(reason){
+    if (!state.recording) {
+      toast('녹화 중일 때만 긴급 잠금할 수 있습니다');
+      return false;
+    }
+    state.segLocked = true;
+    updateLockHud();
+    flashAndBeep();
+    toast(reason === 'impact' ? '💥 충격 감지 — 이 구간을 긴급 잠금했습니다' : '🚨 이 구간을 긴급 잠금했습니다', 2800);
+    return true;
+  }
+
+  $('btnEmergency').addEventListener('click', function(){
+    triggerEmergency('manual');
+  });
+
+  $('btnRecord').addEventListener('click', function(){
+    if (state.recording) stopRecording(false);
+    else startRecording();
+  });
+
+  /* ================= GPS ================= */
+  function setGpsUi(status){
+    state.gpsStatus = status;
+    var b = $('badgeGps');
+    b.classList.add('show');
+    if (status === 'ok') {
+      b.classList.remove('off');
+      b.textContent = 'GPS 연결';
+    } else if (status === 'denied') {
+      b.classList.add('off');
+      b.textContent = 'GPS 권한 없음';
+    } else if (status === 'unsupported') {
+      b.classList.add('off');
+      b.textContent = 'GPS 미지원';
+    } else {
+      b.classList.add('off');
+      b.textContent = 'GPS 대기';
+    }
+  }
+  function startGps(){
+    if (!navigator.geolocation) { setGpsUi('unsupported'); return; }
+    if (state.gpsWatch !== null) return;
+    setGpsUi('waiting');
+    try {
+      state.gpsWatch = navigator.geolocation.watchPosition(onPosition, onGpsError, {
+        enableHighAccuracy: true, maximumAge: 1000, timeout: 20000
+      });
+    } catch (e) { setGpsUi('unsupported'); }
+  }
+  function stopGps(){
+    if (state.gpsWatch !== null && navigator.geolocation) {
+      try { navigator.geolocation.clearWatch(state.gpsWatch); } catch (e) {}
+    }
+    state.gpsWatch = null;
+    state.lastPos = null;
+  }
+  function onPosition(pos){
+    var c = pos.coords;
+    var kmh = null;
+    if (typeof c.speed === 'number' && isFinite(c.speed) && c.speed >= 0) {
+      kmh = c.speed * 3.6;
+    } else if (state.lastPos && pos.timestamp > state.lastPos.t) {
+      var dist = haversine(state.lastPos, { lat: c.latitude, lon: c.longitude });
+      var dt = (pos.timestamp - state.lastPos.t) / 1000;
+      if (dt > 0.2) kmh = (dist / dt) * 3.6;
+    }
+    state.lastPos = { lat: c.latitude, lon: c.longitude, t: pos.timestamp };
+    if (kmh === null) { setGpsUi('waiting'); return; }
+    if (kmh < 0 || kmh > 300) return;
+    state.currentSpeed = kmh;
+    if (state.recording && kmh > state.segMaxSpeed) state.segMaxSpeed = kmh;
+    setGpsUi('ok');
+  }
+  function onGpsError(err){
+    if (err && err.code === 1) setGpsUi('denied');
+    else setGpsUi('waiting');
+  }
+
+  /* ================= wake lock ================= */
+  function updateWakeBadge(){
+    var b = $('badgeWake');
+    if (state.wakeLock) {
+      b.classList.add('show');
+    } else {
+      b.classList.remove('show');
+    }
+  }
+  function requestWakeLock(){
+    if (!('wakeLock' in navigator) || !navigator.wakeLock || typeof navigator.wakeLock.request !== 'function') {
+      state.wakeStatus = 'unsupported';
+      updateWakeBadge();
+      return Promise.resolve(false);
+    }
+    return navigator.wakeLock.request('screen').then(function(sentinel){
+      state.wakeLock = sentinel;
+      state.wakeStatus = 'on';
+      updateWakeBadge();
+      try {
+        sentinel.addEventListener('release', function(){
+          if (state.wakeLock === sentinel) state.wakeLock = null;
+          updateWakeBadge();
+        });
+      } catch (e) {}
+      return true;
+    }).catch(function(){
+      state.wakeStatus = 'failed';
+      updateWakeBadge();
+      return false;
+    });
+  }
+  function releaseWakeLock(){
+    var s = state.wakeLock;
+    state.wakeLock = null;
+    updateWakeBadge();
+    if (s && s.release) { try { s.release(); } catch (e) {} }
+  }
+  document.addEventListener('visibilitychange', function(){
+    if (!document.hidden && state.recording && !state.wakeLock) requestWakeLock();
+  });
+
+  /* ================= motion (impact) ================= */
+  var THRESHOLDS = { sensitive: 10, normal: 18, dull: 30 };
+  function motionHandler(ev){
+    if (!state.recording) return;
+    var th = THRESHOLDS[settings.sensitivity];
+    if (!th) return;
+    var lin = 0, dev = 0;
+    var a = ev.acceleration;
+    if (a && (a.x !== null || a.y !== null || a.z !== null)) {
+      lin = Math.sqrt((a.x || 0) * (a.x || 0) + (a.y || 0) * (a.y || 0) + (a.z || 0) * (a.z || 0));
+    }
+    var ag = ev.accelerationIncludingGravity;
+    if (ag && (ag.x !== null || ag.y !== null || ag.z !== null)) {
+      var mag = Math.sqrt((ag.x || 0) * (ag.x || 0) + (ag.y || 0) * (ag.y || 0) + (ag.z || 0) * (ag.z || 0));
+      dev = Math.abs(mag - 9.80665);
+    }
+    var impact = Math.max(lin, dev);
+    if (impact >= th) {
+      var now = Date.now();
+      if (now - state.lastImpact > 3000) {
+        state.lastImpact = now;
+        triggerEmergency('impact');
+      }
+    }
+  }
+  function startMotion(){
+    if (settings.sensitivity === 'off') return;
+    if (!window.DeviceMotionEvent) return;
+    if (state.motionAttached) return;
+    if (typeof DeviceMotionEvent.requestPermission === 'function') {
+      // iOS 계열: 권한을 받으면 바로, 거절/실패해도 리스너는 붙여 둔다(이벤트만 오지 않음)
+      DeviceMotionEvent.requestPermission().then(function(){
+        attachMotion();
+      }).catch(function(){
+        attachMotion();
+      });
+    } else {
+      attachMotion();
+    }
+  }
+  function attachMotion(){
+    if (state.motionAttached) return;
+    window.addEventListener('devicemotion', motionHandler, false);
+    state.motionAttached = true;
+  }
+  function detachMotion(){
+    if (!state.motionAttached) return;
+    window.removeEventListener('devicemotion', motionHandler, false);
+    state.motionAttached = false;
+  }
+
+  /* ================= HUD tick ================= */
+  function updateHud(){
+    var now = new Date();
+    $('hudDateTime').textContent = fmtDateTime(now.getTime());
+    if (state.recording) {
+      $('hudSegTime').textContent = fmtClock((Date.now() - state.segStart) / 1000);
+    } else {
+      $('hudSegTime').textContent = '00:00';
+    }
+    $('hudSpeed').textContent = state.currentSpeed === null ? '--' : String(Math.round(state.currentSpeed));
+  }
+  setInterval(updateHud, 500);
+  updateHud();
+
+  /* ================= loop limit ================= */
+  function enforceLoopLimit(){
+    return dbAll().then(function(all){
+      var unlocked = all.filter(function(c){ return !c.locked; })
+                        .sort(function(a, b){ return a.createdAt - b.createdAt; });
+      var excess = unlocked.length - settings.maxClips;
+      if (excess <= 0) return 0;
+      var victims = unlocked.slice(0, excess);
+      return Promise.all(victims.map(function(c){ return dbDelete(c.id).catch(function(){}); }))
+        .then(function(){ return victims.length; });
+    }).catch(function(){ return 0; });
+  }
+
+  /* ================= clips list ================= */
+  function sumSize(list){
+    var s = 0;
+    for (var i = 0; i < list.length; i++) s += (list[i].sizeBytes || 0);
+    return s;
+  }
+  function refreshClips(){
+    return dbAll().then(function(all){
+      state.clips = all.sort(function(a, b){ return b.createdAt - a.createdAt; });
+      renderClips();
+      return state.clips;
+    }).catch(function(err){
+      toast('저장된 영상을 읽을 수 없습니다: ' + (err && err.message ? err.message : err), 3200);
+      return [];
+    });
+  }
+  function renderClips(){
+    var list = state.clips;
+    var lockedCount = list.filter(function(c){ return c.locked; }).length;
+
+    $('tabCount').textContent = '(' + list.length + ')';
+    $('qCount').textContent = list.length;
+    $('qLocked').textContent = lockedCount;
+    $('qSize').textContent = fmtSize(sumSize(list));
+    $('storageSize').textContent = fmtSize(sumSize(list));
+
+    var shown = state.filter === 'locked' ? list.filter(function(c){ return c.locked; }) : list;
+    var box = $('clipList');
+    box.innerHTML = '';
+
+    if (!shown.length) {
+      var empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.innerHTML = state.filter === 'locked'
+        ? '긴급 잠금된 영상이 없습니다.<br>충격이 감지되거나 🚨 긴급 잠금을 누르면 여기에 보관됩니다.'
+        : '저장된 영상이 없습니다.<br>녹화를 시작하면 ' + settings.segmentSec / 60 + '분 단위로 자동 저장됩니다.';
+      box.appendChild(empty);
+      return;
+    }
+
+    shown.forEach(function(clip){
+      var el = document.createElement('div');
+      el.className = 'clip' + (clip.locked ? ' locked' : '');
+      el.setAttribute('data-id', clip.id);
+
+      var head = document.createElement('div');
+      head.className = 'clip-head';
+      var time = document.createElement('span');
+      time.className = 'clip-time';
+      time.textContent = fmtDateTime(clip.createdAt);
+      head.appendChild(time);
+      if (clip.locked) {
+        var lb = document.createElement('span');
+        lb.className = 'clip-lock';
+        lb.textContent = '🚨 긴급';
+        head.appendChild(lb);
+      }
+
+      var meta = document.createElement('div');
+      meta.className = 'clip-meta';
+      var bits = [fmtDuration(clip.durationSec), fmtSize(clip.sizeBytes)];
+      if (clip.maxSpeedKmh > 0) bits.push('최고 ' + clip.maxSpeedKmh + ' km/h');
+      meta.textContent = bits.join(' · ');
+
+      var acts = document.createElement('div');
+      acts.className = 'clip-actions';
+      acts.appendChild(mkBtn('play', '재생', 'primary'));
+      acts.appendChild(mkBtn('lock', clip.locked ? '잠금해제' : '잠금', ''));
+      acts.appendChild(mkBtn('download', '저장', ''));
+      acts.appendChild(mkBtn('delete', '삭제', 'del'));
+
+      el.appendChild(head);
+      el.appendChild(meta);
+      el.appendChild(acts);
+      box.appendChild(el);
+    });
+  }
+  function mkBtn(act, label, cls){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.setAttribute('data-act', act);
+    b.textContent = label;
+    if (cls) b.className = cls;
+    return b;
+  }
+
+  $('clipList').addEventListener('click', function(ev){
+    var btn = ev.target.closest ? ev.target.closest('button[data-act]') : null;
+    if (!btn) return;
+    var row = btn.closest('.clip');
+    if (!row) return;
+    var id = row.getAttribute('data-id');
+    var clip = state.clips.filter(function(c){ return c.id === id; })[0];
+    if (!clip) return;
+    var act = btn.getAttribute('data-act');
+    if (act === 'play') openPlayer(clip);
+    else if (act === 'lock') toggleLock(clip);
+    else if (act === 'download') downloadClip(clip);
+    else if (act === 'delete') deleteClip(clip);
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll('.filters button'), function(b){
+    b.addEventListener('click', function(){
+      state.filter = b.getAttribute('data-filter');
+      Array.prototype.forEach.call(document.querySelectorAll('.filters button'), function(x){
+        x.classList.toggle('on', x === b);
+      });
+      renderClips();
+    });
+  });
+
+  function toggleLock(clip){
+    clip.locked = !clip.locked;
+    return dbAdd(clip).then(function(){
+      return refreshClips();
+    }).then(function(){
+      toast(clip.locked ? '🔒 잠갔습니다 — 자동 삭제되지 않습니다' : '잠금을 해제했습니다');
+      if (state.modalClipId === clip.id) syncModal(clip);
+    }).catch(function(err){
+      toast('변경 실패: ' + (err && err.message ? err.message : err));
+    });
+  }
+
+  function deleteClip(clip){
+    if (!window.confirm(fmtDateTime(clip.createdAt) + ' 영상을 삭제할까요?\n삭제하면 되돌릴 수 없습니다.')) return;
+    dbDelete(clip.id).then(function(){
+      if (state.modalClipId === clip.id) closeModal();
+      return refreshClips();
+    }).then(function(){
+      toast('삭제했습니다');
+    }).catch(function(err){
+      toast('삭제 실패: ' + (err && err.message ? err.message : err));
+    });
+  }
+
+  function downloadClip(clip){
+    var url = URL.createObjectURL(clip.blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = '블랙박스_' + fmtStamp(clip.createdAt) + '.' + extForMime(clip.mimeType);
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function(){
+      try { a.parentNode.removeChild(a); } catch (e) {}
+      URL.revokeObjectURL(url);
+    }, 15000);
+    toast('다운로드 폴더로 저장합니다');
+  }
+
+  $('btnClearUnlocked').addEventListener('click', function(){
+    var unlocked = state.clips.filter(function(c){ return !c.locked; });
+    if (!unlocked.length) { toast('삭제할 일반 영상이 없습니다'); return; }
+    if (!window.confirm('일반 영상 ' + unlocked.length + '개를 모두 삭제할까요?\n긴급 잠금 영상은 그대로 남습니다.')) return;
+    Promise.all(unlocked.map(function(c){ return dbDelete(c.id).catch(function(){}); }))
+      .then(function(){ return refreshClips(); })
+      .then(function(){ toast(unlocked.length + '개를 삭제했습니다 (긴급 영상 유지)'); })
+      .catch(function(err){ toast('삭제 실패: ' + (err && err.message ? err.message : err)); });
+  });
+
+  /* ================= player modal ================= */
+  function openPlayer(clip){
+    var v = $('modalVideo');
+    if (state.modalUrl) { try { URL.revokeObjectURL(state.modalUrl); } catch (e) {} }
+    state.modalUrl = URL.createObjectURL(clip.blob);
+    state.modalClipId = clip.id;
+    $('modalTitle').textContent = fmtDateTime(clip.createdAt);
+    v.src = state.modalUrl;
+    // webm 길이(무한대) 문제 보정
+    v.onloadedmetadata = function(){
+      if (v.duration === Infinity || isNaN(v.duration)) {
+        try { v.currentTime = 1e101; } catch (e) {}
+      }
+    };
+    $('modal').classList.add('show');
+    syncModal(clip);
+    var p = v.play();
+    if (p && p.catch) p.catch(function(){});
+  }
+  function syncModal(clip){
+    $('modalMeta').textContent = fmtDuration(clip.durationSec) + ' · ' + fmtSize(clip.sizeBytes) +
+      (clip.maxSpeedKmh > 0 ? ' · 최고 ' + clip.maxSpeedKmh + ' km/h' : '') +
+      (clip.locked ? ' · 🚨 긴급 잠금' : '');
+    $('modalLock').textContent = clip.locked ? '잠금해제' : '잠금';
+    $('modalDownload').onclick = function(){ downloadClip(clip); };
+    $('modalLock').onclick = function(){ toggleLock(clip); };
+  }
+
+  /* ================= misc wiring ================= */
+  $('modalClose').addEventListener('click', closeModal);
+  $('modal').addEventListener('click', function(ev){
+    if (ev.target === $('modal')) closeModal();
+  });
+  function closeModal(){
+    var v = $('modalVideo');
+    try { v.pause(); } catch (e) {}
+    v.removeAttribute('src');
+    try { v.load(); } catch (e) {}
+    $('modal').classList.remove('show');
+    state.modalClipId = null;
+    if (state.modalUrl) {
+      var u = state.modalUrl;
+      state.modalUrl = null;
+      setTimeout(function(){ try { URL.revokeObjectURL(u); } catch (e) {} }, 400);
+    }
+  }
+  document.addEventListener('keydown', function(ev){
+    if (ev.key === 'Escape') closeModal();
+  });
+  window.addEventListener('beforeunload', function(ev){
+    if (state.recording) {
+      ev.preventDefault();
+      ev.returnValue = '녹화 중입니다. 페이지를 떠나면 녹화가 중단됩니다.';
+      return ev.returnValue;
+    }
+  });
+  document.addEventListener('visibilitychange', function(){
+    if (document.hidden && state.recording) {
+      // 화면이 꺼지거나 다른 앱으로 이동하면 브라우저가 카메라를 끊습니다.
+      // 끊기면 track ended / recorder stop 으로 정리됩니다.
+    }
+  });
+
+  /* ================= boot ================= */
+  renderSettings();
+  updateLockHud();
+  updateWakeBadge();
+  refreshClips();
+
+  // 디버깅/자동 점검용 (일반 사용에는 영향 없음)
+  window.__bb = {
+    state: state,
+    settings: settings,
+    rotate: rotateSegment,
+    lock: function(){ return triggerEmergency('manual'); },
+    setSetting: setSetting,
+    refresh: refreshClips,
+    clips: function(){ return dbAll(); },
+    snapshot: function(){
+      return {
+        recording: state.recording,
+        wakeStatus: state.wakeStatus,
+        gpsStatus: state.gpsStatus,
+        segLocked: state.segLocked,
+        clipCount: state.clips.length,
+        lockedCount: state.clips.filter(function(c){ return c.locked; }).length,
+        maxClips: settings.maxClips,
+        segmentSec: settings.segmentSec
+      };
+    }
+  };
+})();
+</script>
+</body>
+</html>
