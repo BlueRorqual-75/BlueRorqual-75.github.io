@@ -227,6 +227,8 @@ input{font:inherit}
   background:rgba(26,34,48,.97);border:1px solid #33405a;color:#eaf0f8;font-size:13px;padding:10px 16px;
   border-radius:12px;opacity:0;pointer-events:none;transition:.2s;max-width:88vw;text-align:center}
 #toast.on{opacity:1;transform:translate(-50%,0)}
+body.sheet-open #toast{bottom:auto;top:calc(14px + var(--sat));transform:translate(-50%,-14px)}
+body.sheet-open #toast.on{transform:translate(-50%,0)}
 #fatal{position:fixed;inset:0;z-index:200;background:#0b0d12;display:none;flex-direction:column;
   align-items:center;justify-content:center;gap:12px;padding:30px;text-align:center;font-size:14px;color:#dbe3ef}
 #fatal.on{display:flex}
@@ -1484,6 +1486,7 @@ function openSheet(opts) {
     back.classList.remove('on');
     sh.innerHTML = '';
     sheetOpen = false;
+    document.body.classList.remove('sheet-open');
     if (opts.onClose) opts.onClose();
   };
   x.addEventListener('click', close);
@@ -1508,6 +1511,7 @@ function openSheet(opts) {
     acts.appendChild(b);
   });
   back.classList.add('on');
+  document.body.classList.add('sheet-open');
   sheetOpen = true;
   return { close: close, body: body, sheet: sh };
 }
@@ -1515,6 +1519,7 @@ function openSheet(opts) {
 function closeSheet() {
   if (!sheetOpen) return;
   sheetOpen = false;
+  document.body.classList.remove('sheet-open');
   $('#backdrop').classList.remove('on');
   $('#sheet').innerHTML = '';
   const back = $('#backdrop');
