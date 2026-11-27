@@ -1,0 +1,2238 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b0d12">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23111824'/%3E%3C/svg%3E">
+<title>사진 저장소</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0b0d12;--panel:#141a26;--panel2:#1b2330;--line:#232c3d;--txt:#eef2f7;--dim:#8d99ad;
+  --acc:#4f8cff;--acc2:#2f6fe0;--danger:#ff5a5f;--ok:#2fbf6b;
+  --sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px);
+}
+html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--txt);
+  font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',system-ui,sans-serif;
+  overscroll-behavior:none}
+body{height:100dvh;overflow:hidden;font-size:15px;line-height:1.4}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+input{font:inherit}
+#app{position:fixed;inset:0;display:flex;flex-direction:column;overflow:hidden}
+.screen{position:absolute;inset:0;display:none;flex-direction:column;min-height:0}
+.screen.on{display:flex}
+
+/* ── 공통 패드 화면 ── */
+.pad-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:12px;padding:calc(18px + var(--sat)) 22px calc(14px + var(--sab));min-height:0}
+.pad-title{font-size:15px;color:var(--dim);text-align:center}
+.dots{display:flex;gap:12px;height:20px;align-items:center;justify-content:center}
+.dot{width:13px;height:13px;border-radius:50%;border:2px solid #46536b;transition:.12s}
+.dot.on{background:var(--acc);border-color:var(--acc);transform:scale(1.08)}
+.err{color:var(--danger);font-size:13px;height:16px;text-align:center;opacity:0;transition:.15s}
+.err.on{opacity:1}
+.shake{animation:sh .32s}
+@keyframes sh{0%,100%{transform:translateX(0)}20%{transform:translateX(-7px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%;max-width:320px}
+.keypad button{height:62px;border-radius:16px;background:var(--panel);border:1px solid var(--line);
+  font-size:23px;font-weight:600;display:flex;align-items:center;justify-content:center;transition:background .08s,transform .08s}
+.keypad button:active{background:var(--panel2);transform:scale(.97)}
+.keypad button.k-empty{background:none;border:0;pointer-events:none}
+.keypad button.k-ok{background:var(--acc);border-color:var(--acc);color:#fff;font-size:20px}
+.keypad button.k-ok[disabled]{opacity:.35}
+.keypad button.k-back{font-size:20px;color:var(--dim)}
+.pad-foot{display:flex;gap:18px;align-items:center;justify-content:center;min-height:24px}
+.linkbtn{color:var(--dim);font-size:13px;text-decoration:underline;text-underline-offset:3px;padding:6px}
+.linkbtn:active{color:var(--txt)}
+.notice{max-width:340px;margin:4px 0 0;color:#6f7c92;font-size:11.5px;line-height:1.55;text-align:center}
+.lock-icon{font-size:30px;opacity:.9}
+.brand-top{position:absolute;top:calc(14px + var(--sat));left:0;right:0;text-align:center;
+  font-size:13px;color:#5f6c82;letter-spacing:.06em}
+
+/* ── 계산기 위장 ── */
+.calc{flex:1;display:flex;flex-direction:column;padding:calc(10px + var(--sat)) 14px calc(10px + var(--sab));
+  gap:10px;background:#0b0d12;min-height:0}
+.calc-screen{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-end;
+  padding:14px 10px;gap:6px;min-height:0;overflow:hidden}
+.calc-expr{font-size:16px;color:#7b8798;min-height:22px;word-break:break-all;text-align:right}
+.calc-out{font-size:44px;font-weight:300;letter-spacing:-.01em;word-break:break-all;text-align:right;line-height:1.15}
+.calc-keys{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.calc-keys button{height:58px;border-radius:14px;background:#1a212e;font-size:22px;font-weight:500;
+  display:flex;align-items:center;justify-content:center}
+.calc-keys button:active{background:#26303f}
+.calc-keys button.op{background:#22304a;color:#9ec2ff}
+.calc-keys button.eq{background:var(--acc);color:#fff}
+.calc-keys button.fn{background:#2a3340;color:#c9d4e5}
+.calc-keys button.wide{grid-column:span 2}
+
+/* ── 금고 화면 ── */
+.hdr{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:calc(8px + var(--sat)) 12px 8px;border-bottom:1px solid var(--line);flex:0 0 auto}
+.brand-sm{font-size:14px;font-weight:600;letter-spacing:.01em;color:#dfe7f3}
+.hdr-btns{display:flex;gap:6px}
+.iconbtn{width:38px;height:38px;border-radius:12px;background:var(--panel);border:1px solid var(--line);
+  font-size:16px;display:flex;align-items:center;justify-content:center}
+.iconbtn:active{background:var(--panel2)}
+.albums{display:flex;gap:7px;overflow-x:auto;overflow-y:hidden;padding:9px 12px;flex:0 0 auto;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.albums::-webkit-scrollbar{display:none}
+.chip{flex:0 0 auto;display:flex;align-items:center;gap:5px;height:32px;padding:0 12px;border-radius:16px;
+  background:var(--panel);border:1px solid var(--line);font-size:13px;color:#c3cddc;white-space:nowrap}
+.chip.on{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600}
+.chip .n{font-size:11px;padding:1px 6px;border-radius:9px;background:#2a3446;color:#a9b6c9}
+.chip.on .n{background:rgba(255,255,255,.24);color:#fff}
+.chip.add{color:#8fa6c6;border-style:dashed}
+.gridwrap{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;min-height:0;position:relative}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;padding:2px}
+.tile{position:relative;aspect-ratio:1/1;background:#171e29;overflow:hidden;border-radius:3px;
+  display:block;width:100%;border:0}
+.tile img{width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .18s}
+.tile img.ready{opacity:1}
+.tile .badge{position:absolute;left:4px;top:4px;font-size:11px;color:#ffd75e;text-shadow:0 1px 3px #000}
+.tile .fname{position:absolute;left:0;right:0;bottom:0;padding:12px 4px 3px;font-size:9.5px;color:#e6edf7;
+  background:linear-gradient(transparent,rgba(0,0,0,.72));overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  text-align:center}
+.tile .check{position:absolute;right:5px;top:5px;width:19px;height:19px;border-radius:50%;
+  border:2px solid #fff;background:rgba(0,0,0,.35);display:none}
+.tile.sel .check{display:block;background:var(--acc);border-color:var(--acc)}
+.tile.sel .check::after{content:'✓';position:absolute;inset:0;font-size:11px;line-height:15px;color:#fff;text-align:center}
+.tile.sel{border:2px solid var(--acc)}
+.empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  color:#7c8899;text-align:center;padding:24px;pointer-events:none}
+.empty[hidden]{display:none}
+.empty .empty-ico{font-size:34px;opacity:.55}
+.empty-sub{font-size:12px;color:#5f6b7e}
+.progress{flex:0 0 auto;padding:8px 14px;border-top:1px solid var(--line);background:var(--panel)}
+.bar{height:5px;background:#2a3444;border-radius:3px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--acc);transition:width .18s}
+.ptext{font-size:11.5px;color:var(--dim);margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ftr{flex:0 0 auto;display:flex;gap:9px;padding:9px 12px calc(9px + var(--sab));border-top:1px solid var(--line);background:#0e1219}
+.btn{border-radius:13px;padding:13px 16px;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid transparent}
+.btn.primary{flex:1;background:var(--acc);color:#fff}
+.btn.primary:active{background:var(--acc2)}
+.btn.ghost{background:var(--panel);border-color:var(--line);color:#c6d1e0;min-width:74px}
+.btn.ghost:active{background:var(--panel2)}
+.btn.tiny{padding:9px 12px;font-size:12.5px;border-radius:11px;background:var(--panel);border-color:var(--line);color:#cfd9e6}
+.btn.tiny.danger{color:#ff8b8f;border-color:#4a2a30;background:#241419}
+.btn.tiny:active{background:var(--panel2)}
+.btn[disabled]{opacity:.38}
+.tile:active{filter:brightness(.85)}
+.selbar{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:8px 10px calc(8px + var(--sab));
+  border-top:1px solid var(--line);background:#101724}
+.selcount{font-size:12px;color:#9fb0c6;flex:0 0 auto;min-width:52px}
+.selacts{display:flex;gap:6px;flex:1;justify-content:flex-end;flex-wrap:wrap}
+
+/* ── 뷰어 ── */
+#viewer{position:fixed;inset:0;background:#000;z-index:60;display:none;flex-direction:column}
+#viewer.on{display:flex}
+.vw-top{display:flex;justify-content:space-between;align-items:center;gap:6px;
+  padding:calc(6px + var(--sat)) 8px 6px;background:linear-gradient(rgba(0,0,0,.75),transparent);z-index:2;flex:0 0 auto}
+.vw-btns{display:flex;gap:2px}
+.vw-btns button{width:42px;height:42px;border-radius:12px;font-size:17px;color:#eaf0f8;
+  display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.07)}
+.vw-btns button:active{background:rgba(255,255,255,.18)}
+.vw-btns button.on{color:#ffd75e}
+.vw-stage{flex:1;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;min-height:0;touch-action:none}
+#vwFrame{position:absolute;left:0;top:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+  transform-origin:center center;will-change:transform}
+#vwImg{max-width:100%;max-height:100%;object-fit:contain;display:block;opacity:0;transition:opacity .15s;
+  -webkit-user-drag:none;user-select:none}
+#vwImg.ready{opacity:1}
+.vw-spin{position:absolute;width:30px;height:30px;border-radius:50%;border:3px solid #2b3444;border-top-color:var(--acc);
+  animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.vw-nav{position:absolute;top:50%;transform:translateY(-50%);width:40px;height:70px;border-radius:12px;
+  background:rgba(0,0,0,.35);color:#dfe7f3;font-size:24px;display:flex;align-items:center;justify-content:center;z-index:3}
+.vw-nav.prev{left:6px}
+.vw-nav.next{right:6px}
+.vw-nav[disabled]{opacity:.18}
+.vw-foot{flex:0 0 auto;padding:8px 14px calc(10px + var(--sab));text-align:center;
+  background:linear-gradient(transparent,rgba(0,0,0,.8));z-index:2}
+.vw-caption{font-size:12px;color:#b9c5d6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vw-index{font-size:11px;color:#7f8b9d;margin-top:2px}
+
+/* ── 모달/시트 ── */
+.backdrop{position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:80;display:none;align-items:flex-end;justify-content:center}
+.backdrop.on{display:flex}
+.sheet{width:100%;max-width:520px;max-height:88dvh;display:flex;flex-direction:column;
+  background:#121926;border-radius:20px 20px 0 0;border-top:1px solid #2a3446;
+  padding:14px 16px calc(14px + var(--sab));animation:up .18s ease-out}
+@keyframes up{from{transform:translateY(18px);opacity:.6}to{transform:none;opacity:1}}
+.sheet-hd{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex:0 0 auto}
+.sheet-title{font-size:16px;font-weight:700}
+.sheet-x{width:34px;height:34px;border-radius:10px;background:#1b2433;color:#aab7c9;font-size:16px}
+.sheet-body{overflow-y:auto;min-height:0;flex:1 1 auto;display:flex;flex-direction:column;gap:10px}
+.sheet-acts{display:flex;gap:8px;margin-top:12px;flex:0 0 auto;flex-wrap:wrap}
+.sheet-acts .btn{flex:1;min-width:110px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 12px;
+  background:#182130;border:1px solid #232d3e;border-radius:13px}
+.row .rl{min-width:0}
+.row .rt{font-size:14px;font-weight:600}
+.row .rs{font-size:11.5px;color:#8593a7;margin-top:2px;line-height:1.45}
+.sw{width:48px;height:28px;border-radius:14px;background:#2c3748;position:relative;flex:0 0 auto;transition:background .15s}
+.sw.on{background:var(--acc)}
+.sw::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:transform .15s}
+.sw.on::after{transform:translateX(20px)}
+.sec-label{font-size:11.5px;color:#7b8899;letter-spacing:.04em;margin:6px 2px -2px}
+.folder-row{display:flex;align-items:center;gap:8px;padding:9px 11px;background:#182130;border:1px solid #232d3e;border-radius:12px}
+.folder-row .fn{flex:1;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.folder-row .fc{font-size:11px;color:#8391a5;flex:0 0 auto}
+.mini{width:32px;height:32px;border-radius:9px;background:#222c3c;color:#c1cddd;font-size:13px;flex:0 0 auto}
+.mini.del{color:#ff8b8f;background:#2a181d}
+.folder-pick{display:flex;flex-direction:column;gap:7px}
+.folder-pick button{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px;
+  background:#182130;border:1px solid #232d3e;border-radius:12px;font-size:14px;text-align:left}
+.folder-pick button:active{background:#1f2a3b}
+.folder-pick .sub{font-size:11.5px;color:#8593a7}
+.pin-mini{display:flex;flex-direction:column;align-items:center;gap:10px;padding:4px 0}
+.pin-mini .dots{height:18px}
+.pin-mini .keypad{max-width:290px;gap:8px}
+.pin-mini .keypad button{height:54px;font-size:21px;border-radius:14px}
+.doc-note{font-size:11.5px;color:#7c8a9e;line-height:1.6;background:#101824;border:1px solid #1e2838;border-radius:12px;padding:11px}
+.danger-note{font-size:11.5px;color:#c98b8f;line-height:1.55}
+#toast{position:fixed;left:50%;bottom:calc(86px + var(--sab));transform:translate(-50%,14px);z-index:120;
+  background:rgba(26,34,48,.97);border:1px solid #33405a;color:#eaf0f8;font-size:13px;padding:10px 16px;
+  border-radius:12px;opacity:0;pointer-events:none;transition:.2s;max-width:88vw;text-align:center}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+#fatal{position:fixed;inset:0;z-index:200;background:#0b0d12;display:none;flex-direction:column;
+  align-items:center;justify-content:center;gap:12px;padding:30px;text-align:center;font-size:14px;color:#dbe3ef}
+#fatal.on{display:flex}
+#fatal .big{font-size:30px}
+#fatal .fs{font-size:12px;color:#8b98ab;line-height:1.6;max-width:330px}
+.hidden{display:none !important}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- 설정(첫 실행) -->
+  <section id="setupView" class="screen">
+    <div class="brand-top">사진 저장소</div>
+    <div class="pad-wrap">
+      <div class="pad-title" id="setupTitle">4~6자리 PIN을 정해 주세요</div>
+      <div class="dots" id="setupDots"></div>
+      <div class="err" id="setupErr"></div>
+      <div class="keypad" id="setupKeypad"></div>
+      <div class="pad-foot"><button class="linkbtn" id="restoreBtn">백업 파일에서 복원</button></div>
+      <p class="notice">모든 사진은 서버로 전송되지 않고 이 기기 브라우저(IndexedDB)에만 암호화 저장됩니다. 브라우저 데이터 삭제 시 함께 지워지므로 중요 사진은 백업 파일로 보관하세요.</p>
+    </div>
+  </section>
+
+  <!-- 잠금 -->
+  <section id="lockView" class="screen">
+    <div class="pad-wrap" id="lockPadWrap">
+      <div class="lock-icon">🔒</div>
+      <div class="pad-title">PIN을 입력하세요</div>
+      <div class="dots" id="lockDots"></div>
+      <div class="err" id="lockErr"></div>
+      <div class="keypad" id="lockKeypad"></div>
+      <div class="pad-foot"><button class="linkbtn" id="toCalcBtn">계산기</button></div>
+    </div>
+    <div class="calc hidden" id="calcWrap">
+      <div class="calc-screen">
+        <div class="calc-expr" id="calcExpr"></div>
+        <div class="calc-out" id="calcOut">0</div>
+      </div>
+      <div class="calc-keys" id="calcKeys"></div>
+    </div>
+  </section>
+
+  <!-- 금고 -->
+  <section id="vaultView" class="screen">
+    <header class="hdr">
+      <div class="brand-sm">🔒 시크릿 사진</div>
+      <div class="hdr-btns">
+        <button class="iconbtn" id="lockBtn" title="잠금" aria-label="잠금">🔒</button>
+        <button class="iconbtn" id="setBtn" title="설정" aria-label="설정">⚙️</button>
+      </div>
+    </header>
+    <nav class="albums" id="albums"></nav>
+    <main class="gridwrap" id="gridWrap">
+      <div class="grid" id="grid"></div>
+      <div class="empty" id="emptyState" hidden>
+        <div class="empty-ico">🖼️</div>
+        <div>이 폴더에 사진이 없습니다</div>
+        <div class="empty-sub">아래 ‘＋ 사진 추가’로 첫 사진을 넣어 보세요</div>
+      </div>
+    </main>
+    <div class="progress hidden" id="progress">
+      <div class="bar"><i id="progressBar"></i></div>
+      <div class="ptext" id="progressText"></div>
+    </div>
+    <footer class="ftr" id="footerBar">
+      <button class="btn primary" id="addBtn">＋ 사진 추가</button>
+      <button class="btn ghost" id="selBtn">선택</button>
+    </footer>
+    <div class="selbar hidden" id="selBar">
+      <div class="selcount" id="selCount">0장 선택</div>
+      <div class="selacts">
+        <button class="btn tiny" id="selMove">폴더 이동</button>
+        <button class="btn tiny" id="selExport">내보내기</button>
+        <button class="btn tiny danger" id="selDel">삭제</button>
+        <button class="btn tiny" id="selCancel">취소</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<input type="file" id="fileInput" accept="image/*" multiple class="hidden">
+<input type="file" id="backupInput" accept=".svault,.json,application/json" class="hidden">
+
+<!-- 전체화면 뷰어 -->
+<div id="viewer">
+  <div class="vw-top">
+    <div class="vw-btns">
+      <button id="vwClose" aria-label="닫기">✕</button>
+    </div>
+    <div class="vw-btns">
+      <button id="vwFav" aria-label="즐겨찾기">☆</button>
+      <button id="vwMove" aria-label="폴더 이동">📁</button>
+      <button id="vwDown" aria-label="다운로드">⬇</button>
+      <button id="vwDel" aria-label="삭제">🗑</button>
+    </div>
+  </div>
+  <div class="vw-stage" id="vwStage">
+    <div id="vwFrame"><img id="vwImg" alt=""></div>
+    <button class="vw-nav prev" id="vwPrev" aria-label="이전">‹</button>
+    <button class="vw-nav next" id="vwNext" aria-label="다음">›</button>
+  </div>
+  <div class="vw-foot">
+    <div class="vw-caption" id="vwCaption"></div>
+    <div class="vw-index" id="vwIndex"></div>
+  </div>
+</div>
+
+<div class="backdrop" id="backdrop"><div class="sheet" id="sheet"></div></div>
+<div id="toast"></div>
+<div id="fatal"><div class="big">⚠️</div><div id="fatalMsg"></div><div class="fs" id="fatalSub"></div></div>
+
+<script>
+'use strict';
+/* ══════════════════════════════════════════════════════════════
+   시크릿 사진 저장소
+   - AES-GCM(window.crypto.subtle) + PBKDF2(SHA-256)
+   - 사진 원본·썸네일·메타데이터·폴더 목록은 모두 암호문만 IndexedDB에 저장
+   ══════════════════════════════════════════════════════════════ */
+
+const DB_NAME = 'svault-db';
+const DB_VER = 1;
+const KDF_ITER = 310000;
+const VERIFY_PLAIN = 'svault-verify-v1';
+const SETTINGS_KEY = 'svault-settings-v1';
+const DEFAULT_FOLDERS = ['일상', '여행', '메모/서류', '비밀'];
+const THUMB_MAX = 420;
+
+const TE = new TextEncoder();
+const TD = new TextDecoder();
+
+const state = {
+  key: null,
+  config: null,
+  folders: [],
+  items: [],
+  view: 'all',            // 'all' | 'fav' | 'folder'
+  folderId: null,
+  selecting: false,
+  selected: new Set(),
+  settings: { autoLock: true, calcDisguise: false },
+  thumbs: new Map(),      // itemId -> objectURL
+  viewList: [],           // viewer order (item ids)
+  viewIdx: -1,
+  viewerUrl: null,
+  viewerItemId: null,
+  uploads: 0,
+  lockGuardUntil: 0,
+  setupPin: '',
+  setupPinLen: 0,
+  setupStep: 1,
+  forceCalc: false,
+  pinEntry: null,         // {buf, target, onOk}
+  busy: false
+};
+
+let db = null;
+
+/* ───────────── 유틸 ───────────── */
+const $ = (s, r) => (r || document).querySelector(s);
+const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+function toast(msg, ms) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('on');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove('on'), ms || 2000);
+}
+
+function fatal(msg, sub) {
+  $('#fatalMsg').textContent = msg;
+  $('#fatalSub').textContent = sub || '';
+  $('#fatal').classList.add('on');
+}
+
+function fmtBytes(n) {
+  if (!n && n !== 0) return '';
+  if (n < 1024) return n + ' B';
+  if (n < 1024 * 1024) return (n / 1024).toFixed(0) + ' KB';
+  return (n / 1024 / 1024).toFixed(1) + ' MB';
+}
+function fmtDate(ts) {
+  const d = new Date(ts);
+  const p = (x) => String(x).padStart(2, '0');
+  return d.getFullYear() + '.' + p(d.getMonth() + 1) + '.' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+
+const B64 = {
+  enc(bytes) {
+    const a = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+    let s = '';
+    const CH = 0x8000;
+    for (let i = 0; i < a.length; i += CH) s += String.fromCharCode.apply(null, a.subarray(i, i + CH));
+    return btoa(s);
+  },
+  dec(str) {
+    const s = atob(str);
+    const a = new Uint8Array(s.length);
+    for (let i = 0; i < s.length; i++) a[i] = s.charCodeAt(i);
+    return a;
+  }
+};
+
+/* ───────────── IndexedDB ───────────── */
+function openDB() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(DB_NAME, DB_VER);
+    r.onupgradeneeded = () => {
+      const d = r.result;
+      if (!d.objectStoreNames.contains('meta')) d.createObjectStore('meta', { keyPath: 'k' });
+      if (!d.objectStoreNames.contains('items')) d.createObjectStore('items', { keyPath: 'id', autoIncrement: true });
+      if (!d.objectStoreNames.contains('blobs')) d.createObjectStore('blobs', { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('items2')) d.createObjectStore('items2', { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('blobs2')) d.createObjectStore('blobs2', { keyPath: 'id' });
+    };
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error || new Error('IndexedDB 오류'));
+    r.onblocked = () => rej(new Error('저장소가 다른 탭에서 사용 중입니다'));
+  });
+}
+function reqP(req) {
+  return new Promise((res, rej) => {
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+function txP(stores, mode, fn) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(stores, mode);
+    let out;
+    tx.oncomplete = () => res(out);
+    tx.onerror = () => rej(tx.error);
+    tx.onabort = () => rej(tx.error || new Error('aborted'));
+    try { out = fn(tx); } catch (e) { try { tx.abort(); } catch (_) {} rej(e); }
+  });
+}
+const idbGet = (store, key) => txP(store, 'readonly', (tx) => { const r = tx.objectStore(store).get(key); return new Promise(res => { r.onsuccess = () => res(r.result); r.onerror = () => res(undefined); }); });
+const idbGetAll = (store) => txP(store, 'readonly', (tx) => new Promise((res) => { const r = tx.objectStore(store).getAll(); r.onsuccess = () => res(r.result); r.onerror = () => res([]); }));
+const idbCount = (store) => txP(store, 'readonly', (tx) => new Promise((res) => { const r = tx.objectStore(store).count(); r.onsuccess = () => res(r.result); r.onerror = () => res(0); }));
+const idbClear = (stores) => txP(stores, 'readwrite', (tx) => { stores.forEach(s => tx.objectStore(s).clear()); });
+const idbPut = (store, val) => txP(store, 'readwrite', (tx) => { tx.objectStore(store).put(val); });
+
+/* ───────────── 암호 ───────────── */
+function assertCrypto() {
+  if (!window.crypto || !window.crypto.subtle || !window.crypto.subtle.deriveKey) {
+    fatal('이 브라우저에서는 암호화를 쓸 수 없습니다.',
+      'Chrome 주소창에 https 주소(또는 http://localhost)로 접속하면 window.crypto.subtle 이 열립니다. 파일을 내려받아 열었다면 https://bluerorqual-75.github.io/secret-vault/ 로 접속해 주세요.');
+    return false;
+  }
+  return true;
+}
+async function deriveKey(pin, salt, iterations) {
+  const base = await crypto.subtle.importKey('raw', TE.encode(pin), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: salt, iterations: iterations || KDF_ITER, hash: 'SHA-256' },
+    base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
+async function encBytes(key, bytes) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, bytes));
+  return { iv: iv, ct: ct };
+}
+async function decBytes(key, iv, ct) {
+  const buf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, key, ct);
+  return new Uint8Array(buf);
+}
+async function encJSON(key, obj) { return encBytes(key, TE.encode(JSON.stringify(obj))); }
+async function decJSON(key, iv, ct) { return JSON.parse(TD.decode(await decBytes(key, iv, ct))); }
+async function verifyKey(key, cfg) {
+  try {
+    const plain = TD.decode(await decBytes(key, cfg.verIv, cfg.verCt));
+    return plain === VERIFY_PLAIN;
+  } catch (e) { return false; }
+}
+
+/* ───────────── 설정(비밀 아님) ───────────── */
+function loadSettings() {
+  try {
+    const o = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+    state.settings.autoLock = o.autoLock !== false;
+    state.settings.calcDisguise = !!o.calcDisguise;
+  } catch (e) { /* 기본값 */ }
+}
+function saveSettings() {
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings)); } catch (e) {}
+}
+
+/* ───────────── 화면 전환 ───────────── */
+function showScreen(id) {
+  ['setupView', 'lockView', 'vaultView'].forEach(s => $('#' + s).classList.toggle('on', s === id));
+}
+
+/* ───────────── 키패드 ───────────── */
+function buildKeypad(el, onKey) {
+  el.innerHTML = '';
+  const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '⌫', '0', '✓'];
+  keys.forEach(k => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = k;
+    b.dataset.k = k;
+    if (k === '⌫') b.className = 'k-back';
+    if (k === '✓') b.className = 'k-ok';
+    b.addEventListener('click', (e) => { e.preventDefault(); onKey(k); });
+    el.appendChild(b);
+  });
+}
+function renderDots(el, n, target) {
+  const max = Math.max(target || 0, n, 4);
+  el.innerHTML = '';
+  for (let i = 0; i < max; i++) {
+    const d = document.createElement('span');
+    d.className = 'dot' + (i < n ? ' on' : '');
+    el.appendChild(d);
+  }
+}
+
+/* ───────────── 첫 설정 ───────────── */
+function showSetup(prefill) {
+  state.setupPin = '';
+  state.setupPinLen = prefill || 0;
+  state.setupStep = 1;
+  $('#setupTitle').textContent = '4~6자리 PIN을 정해 주세요';
+  $('#setupErr').classList.remove('on');
+  renderDots($('#setupDots'), 0, 0);
+  showScreen('setupView');
+}
+
+function setupKey(k) {
+  const err = $('#setupErr');
+  if (k === '⌫') {
+    state.setupPin = state.setupPin.slice(0, -1);
+  } else if (k === '✓') {
+    if (state.setupStep === 1) {
+      if (!/^\d{4,6}$/.test(state.setupPin)) { err.textContent = '4~6자리 숫자 PIN을 입력해 주세요'; err.classList.add('on'); return; }
+      state.setupFirst = state.setupPin;
+      state.setupPin = '';
+      state.setupStep = 2;
+      $('#setupTitle').textContent = '한 번 더 입력해 주세요';
+      err.classList.remove('on');
+      renderDots($('#setupDots'), 0, state.setupFirst.length);
+      return;
+    }
+    if (state.setupPin !== state.setupFirst) {
+      err.textContent = 'PIN이 서로 다릅니다. 처음부터 다시 입력해 주세요';
+      err.classList.add('on');
+      state.setupStep = 1;
+      state.setupFirst = '';
+      state.setupPin = '';
+      $('#setupTitle').textContent = '4~6자리 PIN을 정해 주세요';
+      renderDots($('#setupDots'), 0, 0);
+      return;
+    }
+    err.classList.remove('on');
+    createVault(state.setupPin).catch(e => {
+      console.error(e);
+      err.textContent = '저장소를 만들 수 없습니다: ' + (e && e.message ? e.message : e);
+      err.classList.add('on');
+    });
+    return;
+  } else {
+    if (state.setupPin.length >= 6) return;
+    state.setupPin += k;
+  }
+  renderDots($('#setupDots'), state.setupPin.length, state.setupStep === 2 ? state.setupFirst.length : 0);
+}
+
+async function createVault(pin) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const key = await deriveKey(pin, salt, KDF_ITER);
+  const ver = await encBytes(key, TE.encode(VERIFY_PLAIN));
+  const cfg = {
+    k: 'config', v: 1, kdf: 'PBKDF2-SHA256', iterations: KDF_ITER,
+    salt: salt, verIv: ver.iv, verCt: ver.ct, pinLen: pin.length, createdAt: Date.now()
+  };
+  const folders = DEFAULT_FOLDERS.map((name, i) => ({ id: 'f_' + uid(), name: name, order: i, createdAt: Date.now() + i }));
+  const fe = await encJSON(key, folders);
+  await new Promise((res, rej) => {
+    const tx = db.transaction(['meta', 'items', 'blobs'], 'readwrite');
+    tx.objectStore('meta').put(cfg);
+    tx.objectStore('meta').put({ k: 'folders', iv: fe.iv, ct: fe.ct });
+    tx.objectStore('items').clear();
+    tx.objectStore('blobs').clear();
+    tx.oncomplete = res;
+    tx.onerror = () => rej(tx.error);
+    tx.onabort = () => rej(tx.error || new Error('aborted'));
+  });
+  state.config = cfg;
+  await enterVault(key);
+  toast('금고가 만들어졌습니다');
+}
+
+function uid() {
+  if (crypto.getRandomValues) {
+    const a = crypto.getRandomValues(new Uint8Array(6));
+    return Array.from(a, b => b.toString(36).padStart(2, '0')).join('').slice(0, 8);
+  }
+  return Math.random().toString(36).slice(2, 10);
+}
+
+/* ───────────── 잠금 화면 ───────────── */
+let lockBuf = '';
+let unlocking = false;
+
+function showLock(previewCalc) {
+  lockBuf = '';
+  $('#lockErr').classList.remove('on');
+  $('#lockErr').textContent = '';
+  renderDots($('#lockDots'), 0, state.config ? state.config.pinLen : 4);
+  const useCalc = previewCalc ? true : state.settings.calcDisguise;
+  $('#lockPadWrap').classList.toggle('hidden', useCalc);
+  $('#calcWrap').classList.toggle('hidden', !useCalc);
+  if (useCalc) { calcState.expr = ''; calcState.out = null; calcState.done = false; renderCalc(); }
+  showScreen('lockView');
+}
+
+async function lockKey(k) {
+  if (unlocking) return;
+  const err = $('#lockErr');
+  err.classList.remove('on');
+  if (k === '⌫') {
+    lockBuf = lockBuf.slice(0, -1);
+  } else if (k === '✓') {
+    if (lockBuf.length < 4) { err.textContent = 'PIN을 입력해 주세요'; err.classList.add('on'); return; }
+    await tryUnlock(lockBuf, true);
+    return;
+  } else {
+    if (lockBuf.length >= 8) return;
+    lockBuf += k;
+  }
+  renderDots($('#lockDots'), lockBuf.length, state.config ? state.config.pinLen : 4);
+  if (lockBuf.length === (state.config ? state.config.pinLen : 0)) {
+    await tryUnlock(lockBuf, true);
+  }
+}
+
+async function tryUnlock(pin, showErr) {
+  if (unlocking) return false;
+  unlocking = true;
+  const err = $('#lockErr');
+  const wrap = $('#lockPadWrap');
+  try {
+    const key = await deriveKey(pin, state.config.salt, state.config.iterations);
+    const ok = await verifyKey(key, state.config);
+    if (!ok) {
+      if (showErr) {
+        err.textContent = 'PIN이 틀렸습니다';
+        err.classList.add('on');
+        wrap.classList.remove('shake');
+        void wrap.offsetWidth;
+        wrap.classList.add('shake');
+        if (navigator.vibrate) { try { navigator.vibrate(40); } catch (e) {} }
+      }
+      lockBuf = '';
+      renderDots($('#lockDots'), 0, state.config.pinLen);
+      return false;
+    }
+    err.classList.remove('on');
+    lockBuf = '';
+    await enterVault(key);
+    return true;
+  } catch (e) {
+    if (showErr) { err.textContent = 'PIN이 틀렸습니다'; err.classList.add('on'); }
+    lockBuf = '';
+    renderDots($('#lockDots'), 0, state.config.pinLen);
+    return false;
+  } finally {
+    unlocking = false;
+  }
+}
+
+/* ───────────── 금고 진입/잠금 ───────────── */
+async function enterVault(key) {
+  state.key = key;
+  await loadFolders();
+  await loadItems();
+  state.selecting = false;
+  state.selected.clear();
+  state.view = 'all';
+  state.folderId = null;
+  showScreen('vaultView');
+  renderAll();
+}
+
+function revokeThumbs() {
+  state.thumbs.forEach(u => { try { URL.revokeObjectURL(u); } catch (e) {} });
+  state.thumbs.clear();
+  if (state.viewerUrl) { try { URL.revokeObjectURL(state.viewerUrl); } catch (e) {} state.viewerUrl = null; }
+}
+
+function lockVault(silent) {
+  if (!state.key) return;
+  state.key = null;
+  state.items = [];
+  state.folders = [];
+  state.selected.clear();
+  state.selecting = false;
+  revokeThumbs();
+  closeViewer(true);
+  closeSheet();
+  $('#grid').innerHTML = '';
+  $('#albums').innerHTML = '';
+  lockBuf = '';
+  showLock();
+  if (!silent) toast('잠겼습니다');
+}
+
+function maybeAutoLock() {
+  if (!state.key) return;
+  if (!state.settings.autoLock) return;
+  if (state.uploads > 0) return;
+  if (Date.now() < state.lockGuardUntil) return;
+  lockVault(true);
+}
+
+/* ───────────── 데이터 로드 ───────────── */
+async function loadFolders() {
+  const rec = await idbGet('meta', 'folders');
+  if (!rec) { state.folders = []; return; }
+  try { state.folders = await decJSON(state.key, rec.iv, rec.ct); }
+  catch (e) { state.folders = []; }
+  if (!Array.isArray(state.folders)) state.folders = [];
+}
+async function saveFolders() {
+  const e = await encJSON(state.key, state.folders);
+  await idbPut('meta', { k: 'folders', iv: e.iv, ct: e.ct });
+}
+
+async function loadItems() {
+  const recs = await idbGetAll('items');
+  const out = [];
+  for (const r of recs) {
+    try {
+      const meta = await decJSON(state.key, r.metaIv, r.metaCt);
+      out.push({ id: r.id, createdAt: r.createdAt || meta.createdAt || 0, meta: meta, rec: r });
+    } catch (e) { /* 열 수 없는 항목은 목록에서 제외 */ }
+  }
+  out.sort((a, b) => b.createdAt - a.createdAt);
+  state.items = out;
+}
+
+/* ───────────── 필터/렌더 ───────────── */
+function visibleItems() {
+  if (state.view === 'fav') return state.items.filter(i => i.meta.fav);
+  if (state.view === 'folder') {
+    if (state.folderId === '__none') return state.items.filter(i => !i.meta.folderId || !state.folders.some(f => f.id === i.meta.folderId));
+    return state.items.filter(i => i.meta.folderId === state.folderId);
+  }
+  return state.items;
+}
+function folderName(id) {
+  const f = state.folders.find(x => x.id === id);
+  return f ? f.name : '';
+}
+function countFor(folderId) {
+  return state.items.filter(i => i.meta.folderId === folderId).length;
+}
+function unassignedCount() {
+  return state.items.filter(i => !i.meta.folderId || !state.folders.some(f => f.id === i.meta.folderId)).length;
+}
+
+function renderAll() {
+  renderAlbums();
+  renderGrid();
+  renderFooter();
+}
+
+function renderAlbums() {
+  const box = $('#albums');
+  box.innerHTML = '';
+  const total = state.items.length;
+  const favN = state.items.filter(i => i.meta.fav).length;
+  const mk = (label, n, active, onclick, extra) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'chip' + (active ? ' on' : '') + (extra ? ' ' + extra : '');
+    const t = document.createElement('span');
+    t.textContent = label;
+    b.appendChild(t);
+    if (n !== null && n !== undefined) {
+      const c = document.createElement('span');
+      c.className = 'n';
+      c.textContent = n;
+      b.appendChild(c);
+    }
+    b.addEventListener('click', onclick);
+    box.appendChild(b);
+    return b;
+  };
+  mk('전체', total, state.view === 'all', () => { state.view = 'all'; state.folderId = null; renderAll(); });
+  mk('★ 즐겨찾기', favN, state.view === 'fav', () => { state.view = 'fav'; state.folderId = null; renderAll(); });
+  state.folders.forEach(f => {
+    mk(f.name, countFor(f.id), state.view === 'folder' && state.folderId === f.id, () => {
+      state.view = 'folder'; state.folderId = f.id; renderAll();
+    });
+  });
+  const un = unassignedCount();
+  if (un > 0 && state.folders.length) {
+    mk('미분류', un, state.view === 'folder' && state.folderId === '__none', () => {
+      state.view = 'folder'; state.folderId = '__none'; renderAll();
+    });
+  }
+  mk('＋ 새 폴더', null, false, () => promptNewFolder(), 'add');
+}
+
+function renderGrid() {
+  const grid = $('#grid');
+  const list = visibleItems();
+  const empty = $('#emptyState');
+  grid.innerHTML = '';
+  if (state.gridIO) { try { state.gridIO.disconnect(); } catch (e) {} state.gridIO = null; }
+  state.thumbs.forEach(u => { try { URL.revokeObjectURL(u); } catch (e) {} });
+  state.thumbs.clear();
+  empty.hidden = list.length > 0;
+  if (!list.length) return;
+
+  const frag = document.createDocumentFragment();
+  list.forEach(item => {
+    const tile = document.createElement('button');
+    tile.type = 'button';
+    tile.className = 'tile' + (state.selected.has(item.id) ? ' sel' : '');
+    tile.dataset.id = String(item.id);
+    const img = document.createElement('img');
+    img.alt = '';
+    img.decoding = 'async';
+    tile.appendChild(img);
+    if (item.meta.fav) {
+      const b = document.createElement('span');
+      b.className = 'badge';
+      b.textContent = '★';
+      tile.appendChild(b);
+    }
+    const fn = document.createElement('span');
+    fn.className = 'fname';
+    fn.textContent = item.meta.name || '';
+    tile.appendChild(fn);
+    const chk = document.createElement('span');
+    chk.className = 'check';
+    tile.appendChild(chk);
+    frag.appendChild(tile);
+  });
+  grid.appendChild(frag);
+
+  // 썸네일 지연 복호화
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(en => {
+      if (!en.isIntersecting) return;
+      io.unobserve(en.target);
+      const id = Number(en.target.dataset.id);
+      const item = state.items.find(i => i.id === id);
+      const img = en.target.querySelector('img');
+      if (item && img) loadThumb(item, img);
+    });
+  }, { root: $('#gridWrap'), rootMargin: '300px 0px' });
+  $$('.tile', grid).forEach(t => io.observe(t));
+  state.gridIO = io;
+
+  const ids = list.map(i => i.id);
+  state.viewList = ids;
+}
+
+async function loadThumb(item, img) {
+  try {
+    let url = state.thumbs.get(item.id);
+    if (!url) {
+      const bytes = await decBytes(state.key, item.rec.thumbIv, item.rec.thumbCt);
+      url = URL.createObjectURL(new Blob([bytes], { type: 'image/jpeg' }));
+      state.thumbs.set(item.id, url);
+    }
+    if (img.isConnected) { img.src = url; img.classList.add('ready'); }
+  } catch (e) { /* 표시 실패 */ }
+}
+
+function renderFooter() {
+  $('#footerBar').classList.toggle('hidden', state.selecting);
+  $('#selBar').classList.toggle('hidden', !state.selecting);
+  $('#selCount').textContent = state.selected.size + '장 선택';
+  $('#selDel').disabled = state.selected.size === 0;
+  $('#selMove').disabled = state.selected.size === 0;
+  $('#selExport').disabled = state.selected.size === 0;
+}
+
+/* ───────────── 폴더 ───────────── */
+function promptNewFolder() {
+  openSheet({
+    title: '새 폴더',
+    body: (host) => {
+      const inp = document.createElement('input');
+      inp.type = 'text';
+      inp.maxLength = 20;
+      inp.placeholder = '폴더 이름 (예: 가족, 2026 여행)';
+      inp.style.cssText = 'width:100%;padding:13px;border-radius:12px;background:#182130;border:1px solid #2a3548;color:#eef2f7;font-size:15px';
+      host.appendChild(inp);
+      setTimeout(() => inp.focus(), 60);
+    },
+    actions: [
+      { label: '취소', cls: 'ghost', close: true },
+      {
+        label: '만들기', cls: 'primary', onClick: async (host, close) => {
+          const inp = host.querySelector('input');
+          const name = (inp.value || '').trim();
+          if (!name) { toast('폴더 이름을 입력해 주세요'); return false; }
+          if (state.folders.some(f => f.name === name)) { toast('같은 이름의 폴더가 있습니다'); return false; }
+          const f = { id: 'f_' + uid(), name: name, order: state.folders.length, createdAt: Date.now() };
+          state.folders.push(f);
+          await saveFolders();
+          state.view = 'folder'; state.folderId = f.id;
+          close();
+          renderAll();
+          if (settingsOpen) openSettings();
+          toast('폴더를 만들었습니다');
+        }
+      }
+    ]
+  });
+}
+
+function promptRenameFolder(f) {
+  openSheet({
+    title: '폴더 이름 변경',
+    body: (host) => {
+      const inp = document.createElement('input');
+      inp.type = 'text';
+      inp.maxLength = 20;
+      inp.value = f.name;
+      inp.style.cssText = 'width:100%;padding:13px;border-radius:12px;background:#182130;border:1px solid #2a3548;color:#eef2f7;font-size:15px';
+      host.appendChild(inp);
+      setTimeout(() => { inp.focus(); inp.select(); }, 60);
+    },
+    actions: [
+      { label: '취소', cls: 'ghost', close: true },
+      {
+        label: '변경', cls: 'primary', onClick: async (host, close) => {
+          const inp = host.querySelector('input');
+          const name = (inp.value || '').trim();
+          if (!name) { toast('폴더 이름을 입력해 주세요'); return false; }
+          f.name = name;
+          await saveFolders();
+          close();
+          renderAll();
+          if (settingsOpen) openSettings();
+          toast('이름을 바꿨습니다');
+        }
+      }
+    ]
+  });
+}
+
+function promptDeleteFolder(f) {
+  const n = countFor(f.id);
+  confirmSheet('폴더 삭제', '‘' + f.name + '’ 폴더를 삭제할까요?' + (n ? '\n이 폴더의 사진 ' + n + '장은 지워지지 않고 ‘미분류’로 남습니다.' : ''), async () => {
+    state.folders = state.folders.filter(x => x.id !== f.id);
+    await saveFolders();
+    if (state.folderId === f.id) { state.view = 'all'; state.folderId = null; }
+    renderAll();
+    setTimeout(() => { if (settingsOpen) openSettings(); }, 40);
+    toast('폴더를 삭제했습니다');
+  }, '삭제');
+}
+
+function pickFolder(title, opts) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (v) => { if (!settled) { settled = true; resolve(v); } };
+    openSheet({
+      title: title,
+      body: (host, close) => {
+        const box = document.createElement('div');
+        box.className = 'folder-pick';
+        const add = (value, main, sub) => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          const l = document.createElement('span');
+          l.textContent = main;
+          b.appendChild(l);
+          if (sub) { const s = document.createElement('span'); s.className = 'sub'; s.textContent = sub; b.appendChild(s); }
+          b.addEventListener('click', () => { done(value); close(); });
+          box.appendChild(b);
+        };
+        state.folders.forEach(f => add(f.id, '📁 ' + f.name, countFor(f.id) + '장'));
+        if (!opts || opts.allowNone !== false) add(null, '🗂 미분류', '폴더 없이 저장 · ' + unassignedCount() + '장');
+        if (!opts || opts.allowNew !== false) {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.style.color = '#8fa6c6';
+          b.textContent = '＋ 새 폴더 만들어 넣기';
+          b.addEventListener('click', () => { close(); promptNewFolderThen((id) => done(id)); });
+          box.appendChild(b);
+        }
+        host.appendChild(box);
+      },
+      actions: [{ label: '취소', cls: 'ghost', onClick: (h, close) => { done(undefined); close(); } }],
+      onClose: () => done(undefined)
+    });
+  });
+}
+
+function promptNewFolderThen(resolve) {
+  let settled = false;
+  const done = (v) => { if (!settled) { settled = true; resolve(v); } };
+  openSheet({
+    title: '새 폴더',
+    body: (host) => {
+      const inp = document.createElement('input');
+      inp.type = 'text'; inp.maxLength = 20; inp.placeholder = '폴더 이름';
+      inp.style.cssText = 'width:100%;padding:13px;border-radius:12px;background:#182130;border:1px solid #2a3548;color:#eef2f7;font-size:15px';
+      host.appendChild(inp);
+      setTimeout(() => inp.focus(), 60);
+    },
+    actions: [
+      { label: '취소', cls: 'ghost', onClick: (h, close) => { done(undefined); close(); } },
+      {
+        label: '만들기', cls: 'primary', onClick: async (host, close) => {
+          const name = (host.querySelector('input').value || '').trim();
+          if (!name) { toast('폴더 이름을 입력해 주세요'); return false; }
+          if (state.folders.some(f => f.name === name)) { toast('같은 이름의 폴더가 있습니다'); return false; }
+          const f = { id: 'f_' + uid(), name: name, order: state.folders.length, createdAt: Date.now() };
+          state.folders.push(f);
+          await saveFolders();
+          done(f.id);
+          close();
+        }
+      }
+    ],
+    onClose: () => done(undefined)
+  });
+}
+
+/* ───────────── 사진 추가 ───────────── */
+async function makeThumb(file) {
+  let bmp = null;
+  try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
+  catch (e) {
+    bmp = await new Promise((res, rej) => {
+      const url = URL.createObjectURL(file);
+      const im = new Image();
+      im.onload = () => { URL.revokeObjectURL(url); res(im); };
+      im.onerror = () => { URL.revokeObjectURL(url); rej(new Error('이미지를 읽을 수 없습니다')); };
+      im.src = url;
+    });
+  }
+  const w0 = bmp.width || bmp.naturalWidth, h0 = bmp.height || bmp.naturalHeight;
+  const s = Math.min(1, THUMB_MAX / Math.max(w0, h0));
+  const w = Math.max(1, Math.round(w0 * s)), h = Math.max(1, Math.round(h0 * s));
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d');
+  ctx.drawImage(bmp, 0, 0, w, h);
+  if (bmp.close) bmp.close();
+  const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.78));
+  if (!blob) throw new Error('썸네일 생성 실패');
+  return new Uint8Array(await blob.arrayBuffer());
+}
+
+function showProgress(i, n, name) {
+  $('#progress').classList.remove('hidden');
+  $('#progressBar').style.width = (n ? Math.round((i / n) * 100) : 0) + '%';
+  $('#progressText').textContent = i + '/' + n + ' 저장 중' + (name ? ' · ' + name : '');
+}
+function hideProgress() { $('#progress').classList.add('hidden'); }
+
+async function addFiles(files, folderId) {
+  const list = Array.from(files || []).filter(f => /^image\//.test(f.type) || /\.(jpe?g|png|gif|webp|bmp|heic|heif|avif)$/i.test(f.name || ''));
+  if (!list.length) { toast('사진 파일이 없습니다'); return; }
+  if (!state.key) return;
+  state.uploads++;
+  showProgress(0, list.length, '');
+  let ok = 0, fail = 0;
+  for (let i = 0; i < list.length; i++) {
+    const f = list[i];
+    if (!state.key) { fail++; continue; }
+    showProgress(i, list.length, f.name);
+    try {
+      const thumb = await makeThumb(f);
+      const raw = new Uint8Array(await f.arrayBuffer());
+      const meta = {
+        name: f.name || ('사진 ' + (i + 1)),
+        type: f.type || 'image/jpeg',
+        size: raw.length,
+        fav: false,
+        folderId: folderId || null,
+        createdAt: Date.now() + i
+      };
+      const me = await encJSON(state.key, meta);
+      const te = await encBytes(state.key, thumb);
+      const be = await encBytes(state.key, raw);
+      await insertItem({ createdAt: meta.createdAt, metaIv: me.iv, metaCt: me.ct, thumbIv: te.iv, thumbCt: te.ct }, { iv: be.iv, data: be.ct });
+      ok++;
+      showProgress(i + 1, list.length, f.name);
+    } catch (e) {
+      console.warn('저장 실패', f.name, e);
+      fail++;
+    }
+    await sleep(0);
+  }
+  state.uploads--;
+  hideProgress();
+  if (state.key) { await loadItems(); renderAll(); }
+  if (ok) toast(ok + '장 저장했습니다');
+  if (fail) toast(fail + '장을 저장하지 못했습니다', 2600);
+}
+
+function insertItem(itemRec, blobRec) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(['items', 'blobs'], 'readwrite');
+    const r = tx.objectStore('items').add(itemRec);
+    r.onsuccess = () => { tx.objectStore('blobs').put({ id: r.result, iv: blobRec.iv, data: blobRec.data }); };
+    tx.oncomplete = () => res(r.result);
+    tx.onerror = () => rej(tx.error);
+    tx.onabort = () => rej(tx.error || new Error('aborted'));
+  });
+}
+
+async function startAdd() {
+  if (!state.key) return;
+  if (state.uploads) { toast('저장 중입니다'); return; }
+  state.lockGuardUntil = Date.now() + 180000;   // 파일 선택 중 자동 잠금 잠시 보류
+  const input = $('#fileInput');
+  input.value = '';
+  input.click();
+}
+
+async function onFilesPicked() {
+  const input = $('#fileInput');
+  const files = Array.from(input.files || []);
+  state.lockGuardUntil = 0;
+  if (!files.length) return;
+  let folderId;
+  if (state.view === 'folder' && state.folderId && state.folderId !== '__none') {
+    folderId = state.folderId;
+  } else if (state.view === 'folder' && state.folderId === '__none') {
+    folderId = null;
+  } else {
+    const pick = await pickFolder('어느 폴더에 저장할까요?');
+    if (pick === undefined) return;
+    folderId = pick;
+  }
+  input.value = '';
+  await addFiles(files, folderId);
+}
+
+/* ───────────── 선택 모드 ───────────── */
+function toggleSelectMode(on) {
+  state.selecting = on;
+  if (!on) state.selected.clear();
+  renderGrid();
+  renderFooter();
+}
+function toggleSelect(id) {
+  if (state.selected.has(id)) state.selected.delete(id); else state.selected.add(id);
+  const tile = $('.tile[data-id="' + id + '"]');
+  if (tile) tile.classList.toggle('sel', state.selected.has(id));
+  renderFooter();
+}
+
+async function bulkMove() {
+  const ids = Array.from(state.selected);
+  if (!ids.length) return;
+  const target = await pickFolder(ids.length + '장을 어느 폴더로 옮길까요?');
+  if (target === undefined) return;
+  showProgress(0, ids.length, '이동 중');
+  let i = 0;
+  for (const id of ids) {
+    await updateItemMeta(id, (m) => { m.folderId = target || null; });
+    showProgress(++i, ids.length, '이동 중');
+  }
+  hideProgress();
+  state.selected.clear();
+  state.selecting = false;
+  await loadItems();
+  renderAll();
+  toast(ids.length + '장을 옮겼습니다');
+}
+
+async function bulkDelete() {
+  const ids = Array.from(state.selected);
+  if (!ids.length) return;
+  confirmSheet('삭제', ids.length + '장의 사진을 완전히 삭제할까요?\n삭제한 사진은 되돌릴 수 없습니다.', async () => {
+    await deleteItems(ids);
+    state.selected.clear();
+    state.selecting = false;
+    await loadItems();
+    renderAll();
+    toast(ids.length + '장을 삭제했습니다');
+  }, '삭제');
+}
+
+async function updateItemMeta(id, fn) {
+  const rec = await idbGet('items', id);
+  if (!rec || !state.key) return;
+  const meta = await decJSON(state.key, rec.metaIv, rec.metaCt);
+  fn(meta);
+  const e = await encJSON(state.key, meta);
+  rec.metaIv = e.iv; rec.metaCt = e.ct;
+  await idbPut('items', rec);
+}
+
+async function deleteItems(ids) {
+  await txP(['items', 'blobs'], 'readwrite', (tx) => {
+    ids.forEach(id => { tx.objectStore('items').delete(id); tx.objectStore('blobs').delete(id); });
+  });
+  ids.forEach(id => {
+    const u = state.thumbs.get(id);
+    if (u) { try { URL.revokeObjectURL(u); } catch (e) {} state.thumbs.delete(id); }
+  });
+}
+
+/* ───────────── 뷰어 ───────────── */
+const zoom = { scale: 1, tx: 0, ty: 0, ptrs: new Map(), d0: 0, s0: 1, x0: 0, y0: 0, lastTap: 0, moved: false, sx: 0, sy: 0 };
+
+function applyZoom() {
+  $('#vwFrame').style.transform = 'translate(' + zoom.tx + 'px,' + zoom.ty + 'px) scale(' + zoom.scale + ')';
+}
+function resetZoom() {
+  zoom.scale = 1; zoom.tx = 0; zoom.ty = 0;
+  applyZoom();
+}
+
+async function openViewer(itemId) {
+  const list = state.viewList;
+  const idx = list.indexOf(itemId);
+  if (idx < 0) return;
+  state.viewIdx = idx;
+  state.viewerItemId = itemId;
+  $('#viewer').classList.add('on');
+  resetZoom();
+  await showViewerImage();
+}
+
+function closeViewer(silent) {
+  $('#viewer').classList.remove('on');
+  const img = $('#vwImg');
+  img.removeAttribute('src');
+  img.classList.remove('ready');
+  if (state.viewerUrl) { try { URL.revokeObjectURL(state.viewerUrl); } catch (e) {} state.viewerUrl = null; }
+  state.viewerItemId = null;
+  state.viewIdx = -1;
+  if (!silent) renderGrid();
+}
+
+async function showViewerImage() {
+  const id = state.viewList[state.viewIdx];
+  if (!id) return;
+  const item = state.items.find(i => i.id === id);
+  if (!item) return;
+  state.viewerItemId = id;
+  const img = $('#vwImg');
+  img.classList.remove('ready');
+  img.removeAttribute('src');
+  const stage = $('#vwStage');
+  let spin = $('.vw-spin', stage);
+  if (!spin) { spin = document.createElement('div'); spin.className = 'vw-spin'; stage.appendChild(spin); }
+  spin.style.display = 'block';
+  if (state.viewerUrl) { try { URL.revokeObjectURL(state.viewerUrl); } catch (e) {} state.viewerUrl = null; }
+  resetZoom();
+
+  $('#vwCaption').textContent = (item.meta.name || '사진') + ' · ' + fmtBytes(item.meta.size) +
+    (folderName(item.meta.folderId) ? ' · ' + folderName(item.meta.folderId) : '');
+  $('#vwIndex').textContent = (state.viewIdx + 1) + ' / ' + state.viewList.length;
+  $('#vwFav').textContent = item.meta.fav ? '★' : '☆';
+  $('#vwFav').classList.toggle('on', !!item.meta.fav);
+  $('#vwPrev').disabled = state.viewIdx <= 0;
+  $('#vwNext').disabled = state.viewIdx >= state.viewList.length - 1;
+
+  if (!state.key) { spin.style.display = 'none'; return; }
+  try {
+    const b = await idbGet('blobs', id);
+    if (!b || !state.key) { spin.style.display = 'none'; return; }
+    const bytes = await decBytes(state.key, b.iv, b.data);
+    const url = URL.createObjectURL(new Blob([bytes], { type: item.meta.type || 'image/jpeg' }));
+    if (state.viewerItemId !== id) { URL.revokeObjectURL(url); return; }
+    state.viewerUrl = url;
+    img.onload = () => { img.classList.add('ready'); spin.style.display = 'none'; };
+    img.src = url;
+  } catch (e) {
+    spin.style.display = 'none';
+    toast('사진을 열 수 없습니다');
+  }
+}
+
+function viewerStep(d) {
+  const next = state.viewIdx + d;
+  if (next < 0 || next >= state.viewList.length) return;
+  state.viewIdx = next;
+  showViewerImage();
+}
+
+async function viewerFavorite() {
+  const id = state.viewerItemId;
+  if (!id) return;
+  const item = state.items.find(i => i.id === id);
+  if (!item) return;
+  const v = !item.meta.fav;
+  await updateItemMeta(id, (m) => { m.fav = v; });
+  item.meta.fav = v;
+  $('#vwFav').textContent = v ? '★' : '☆';
+  $('#vwFav').classList.toggle('on', v);
+  renderAll();
+  toast(v ? '즐겨찾기에 넣었습니다' : '즐겨찾기를 해제했습니다');
+}
+
+async function viewerMove() {
+  const id = state.viewerItemId;
+  if (!id) return;
+  const item = state.items.find(i => i.id === id);
+  if (!item) return;
+  const target = await pickFolder('어느 폴더로 옮길까요?');
+  if (target === undefined) return;
+  await updateItemMeta(id, (m) => { m.folderId = target || null; });
+  item.meta.folderId = target || null;
+  await loadItems();
+  renderAll();
+  $('#vwCaption').textContent = (item.meta.name || '사진') + ' · ' + fmtBytes(item.meta.size) +
+    (folderName(item.meta.folderId) ? ' · ' + folderName(item.meta.folderId) : '');
+  toast('폴더를 옮겼습니다');
+}
+
+async function downloadItem(item) {
+  if (!item || !state.key) return;
+  try {
+    const b = await idbGet('blobs', item.id);
+    const bytes = await decBytes(state.key, b.iv, b.data);
+    const blob = new Blob([bytes], { type: item.meta.type || 'image/jpeg' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = item.meta.name || ('photo-' + item.id + '.jpg');
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => { try { URL.revokeObjectURL(url); } catch (e) {} }, 8000);
+    toast('사진을 내려받았습니다');
+  } catch (e) {
+    toast('내보내기에 실패했습니다');
+  }
+}
+
+async function viewerDelete() {
+  const id = state.viewerItemId;
+  if (!id) return;
+  confirmSheet('삭제', '이 사진을 완전히 삭제할까요?\n삭제한 사진은 되돌릴 수 없습니다.', async () => {
+    const wasIdx = state.viewIdx;
+    await deleteItems([id]);
+    await loadItems();
+    renderAll();
+    // 다음 사진으로
+    const list = visibleItems().map(i => i.id);
+    state.viewList = list;
+    if (!list.length) { closeViewer(); toast('삭제했습니다'); return; }
+    state.viewIdx = Math.min(wasIdx, list.length - 1);
+    showViewerImage();
+    toast('삭제했습니다');
+  }, '삭제');
+}
+
+/* 뷰어 제스처 */
+function initViewerGestures() {
+  const stage = $('#vwStage');
+  stage.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('.vw-nav')) return;
+    zoom.ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    zoom.moved = false;
+    if (zoom.ptrs.size === 1) {
+      zoom.sx = e.clientX; zoom.sy = e.clientY;
+      zoom.x0 = zoom.tx; zoom.y0 = zoom.ty;
+    } else if (zoom.ptrs.size === 2) {
+      const [a, b] = Array.from(zoom.ptrs.values());
+      zoom.d0 = Math.hypot(a.x - b.x, a.y - b.y);
+      zoom.s0 = zoom.scale;
+    }
+  });
+  stage.addEventListener('pointermove', (e) => {
+    if (!zoom.ptrs.has(e.pointerId)) return;
+    zoom.ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (zoom.ptrs.size === 2) {
+      const [a, b] = Array.from(zoom.ptrs.values());
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (zoom.d0 > 0) {
+        zoom.scale = Math.min(6, Math.max(1, zoom.s0 * (d / zoom.d0)));
+        if (zoom.scale === 1) { zoom.tx = 0; zoom.ty = 0; }
+        applyZoom();
+      }
+      zoom.moved = true;
+    } else if (zoom.ptrs.size === 1 && zoom.scale > 1) {
+      const dx = e.clientX - zoom.sx, dy = e.clientY - zoom.sy;
+      if (Math.abs(dx) + Math.abs(dy) > 4) zoom.moved = true;
+      const lim = 400 * (zoom.scale - 1);
+      zoom.tx = Math.max(-lim, Math.min(lim, zoom.x0 + dx));
+      zoom.ty = Math.max(-lim, Math.min(lim, zoom.y0 + dy));
+      applyZoom();
+    }
+  });
+  const end = (e) => {
+    const p = zoom.ptrs.get(e.pointerId);
+    zoom.ptrs.delete(e.pointerId);
+    if (!p) return;
+    if (zoom.ptrs.size !== 0) return;
+    const dx = e.clientX - zoom.sx;
+    const dy = e.clientY - zoom.sy;
+    const isTap = !zoom.moved || (Math.abs(dx) < 8 && Math.abs(dy) < 8);
+    if (isTap) {
+      const now = Date.now();
+      if (now - zoom.lastTap < 320) {
+        zoom.lastTap = 0;
+        if (zoom.scale > 1) { zoom.scale = 1; zoom.tx = 0; zoom.ty = 0; }
+        else { zoom.scale = 2.5; zoom.tx = 0; zoom.ty = 0; }
+        applyZoom();
+      } else {
+        zoom.lastTap = now;
+      }
+    } else if (zoom.scale <= 1.02 && Math.abs(dx) > 55) {
+      viewerStep(dx < 0 ? 1 : -1);
+    }
+  };
+  stage.addEventListener('pointerup', end);
+  stage.addEventListener('pointercancel', end);
+}
+
+/* ───────────── 시트/모달 ───────────── */
+let sheetOpen = false;
+function openSheet(opts) {
+  openSheet._bar = null;
+  openSheet._txt = null;
+  const back = $('#backdrop');
+  const sh = $('#sheet');
+  sh.innerHTML = '';
+  const hd = document.createElement('div');
+  hd.className = 'sheet-hd';
+  const t = document.createElement('div');
+  t.className = 'sheet-title';
+  t.textContent = opts.title || '';
+  hd.appendChild(t);
+  const x = document.createElement('button');
+  x.className = 'sheet-x';
+  x.type = 'button';
+  x.textContent = '✕';
+  hd.appendChild(x);
+  sh.appendChild(hd);
+
+  const body = document.createElement('div');
+  body.className = 'sheet-body';
+  sh.appendChild(body);
+
+  const acts = document.createElement('div');
+  acts.className = 'sheet-acts';
+  sh.appendChild(acts);
+
+  let closed = false;
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    back.classList.remove('on');
+    sh.innerHTML = '';
+    sheetOpen = false;
+    if (opts.onClose) opts.onClose();
+  };
+  x.addEventListener('click', close);
+  back.onclick = (e) => { if (e.target === back && opts.dismissible !== false) close(); };
+
+  if (opts.body) {
+    try { opts.body(body, close); }
+    catch (e) { console.error(e); }
+  }
+  (opts.actions || []).forEach(a => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'btn ' + (a.cls || 'ghost');
+    b.textContent = a.label;
+    b.addEventListener('click', async () => {
+      if (a.onClick) {
+        b.disabled = true;
+        try { const keep = await a.onClick(body, close); if (keep === false) b.disabled = false; }
+        catch (e) { console.error(e); toast('처리하지 못했습니다'); b.disabled = false; }
+      } else if (a.close) close();
+    });
+    acts.appendChild(b);
+  });
+  back.classList.add('on');
+  sheetOpen = true;
+  return { close: close, body: body, sheet: sh };
+}
+
+function closeSheet() {
+  if (!sheetOpen) return;
+  sheetOpen = false;
+  $('#backdrop').classList.remove('on');
+  $('#sheet').innerHTML = '';
+  const back = $('#backdrop');
+  back.onclick = null;
+}
+
+function confirmSheet(title, msg, onOk, okLabel) {
+  openSheet({
+    title: title,
+    body: (host) => {
+      const p = document.createElement('div');
+      p.className = 'doc-note';
+      p.style.whiteSpace = 'pre-line';
+      p.textContent = msg;
+      host.appendChild(p);
+    },
+    actions: [
+      { label: '취소', cls: 'ghost', close: true },
+      {
+        label: okLabel || '확인', cls: 'primary', onClick: async (host, close) => {
+          await onOk();
+          close();
+        }
+      }
+    ]
+  });
+}
+
+/* PIN 입력 시트(백업 복원, PIN 변경) */
+function pinSheet(title, subtitle) {
+  return new Promise((resolve) => {
+    let buf = '';
+    let closed = false;
+    const sh = openSheet({
+      title: title,
+      body: (host) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'pin-mini';
+        if (subtitle) {
+          const s = document.createElement('div');
+          s.className = 'sheet-sub';
+          s.style.cssText = 'font-size:12.5px;color:#8b98ab;text-align:center';
+          s.textContent = subtitle;
+          wrap.appendChild(s);
+        }
+        const dots = document.createElement('div');
+        dots.className = 'dots';
+        wrap.appendChild(dots);
+        const err = document.createElement('div');
+        err.className = 'err';
+        wrap.appendChild(err);
+        const kp = document.createElement('div');
+        kp.className = 'keypad';
+        wrap.appendChild(kp);
+        buildKeypad(kp, (k) => {
+          if (k === '⌫') buf = buf.slice(0, -1);
+          else if (k === '✓') {
+            if (!/^\d{4,6}$/.test(buf)) { err.textContent = '4~6자리 PIN을 입력해 주세요'; err.classList.add('on'); return; }
+            closed = true;
+            const v = buf; sh.close(); resolve(v);
+            return;
+          } else { if (buf.length >= 6) return; buf += k; }
+          renderDots(dots, buf.length, 0);
+          err.classList.remove('on');
+        });
+        renderDots(dots, 0, 0);
+        host.appendChild(wrap);
+      },
+      actions: [{ label: '취소', cls: 'ghost', close: true }],
+      onClose: () => { if (!closed) { closed = true; resolve(null); } }
+    });
+  });
+}
+
+/* ───────────── 설정 ───────────── */
+let settingsOpen = false;
+function openSettings() {
+  const sh = openSheet({
+    title: '설정',
+    body: (host) => {
+      const frag = document.createDocumentFragment();
+
+      const sec = (label) => { const d = document.createElement('div'); d.className = 'sec-label'; d.textContent = label; return d; };
+
+      const rowSwitch = (title, sub, key) => {
+        const r = document.createElement('div');
+        r.className = 'row';
+        const l = document.createElement('div');
+        l.className = 'rl';
+        const t = document.createElement('div');
+        t.className = 'rt'; t.textContent = title;
+        const s = document.createElement('div');
+        s.className = 'rs'; s.textContent = sub;
+        l.appendChild(t); l.appendChild(s);
+        const sw = document.createElement('button');
+        sw.type = 'button';
+        sw.className = 'sw' + (state.settings[key] ? ' on' : '');
+        sw.setAttribute('role', 'switch');
+        sw.setAttribute('aria-checked', state.settings[key] ? 'true' : 'false');
+        sw.addEventListener('click', () => {
+          state.settings[key] = !state.settings[key];
+          sw.classList.toggle('on', state.settings[key]);
+          sw.setAttribute('aria-checked', state.settings[key] ? 'true' : 'false');
+          saveSettings();
+          if (key === 'calcDisguise') toast(state.settings.calcDisguise ? '다음 잠금부터 계산기로 보입니다' : '계산기 위장을 껐습니다');
+        });
+        r.appendChild(l); r.appendChild(sw);
+        return r;
+      };
+
+      frag.appendChild(sec('보안'));
+      frag.appendChild(rowSwitch('자동 잠금', '앱을 나가거나 화면이 꺼지면 즉시 잠급니다', 'autoLock'));
+      frag.appendChild(rowSwitch('계산기 위장 잠금', '잠금 화면이 계산기로 보입니다. PIN을 누르고 = 를 누르면 열립니다', 'calcDisguise'));
+
+      const pinRow = document.createElement('div');
+      pinRow.className = 'row';
+      const pl = document.createElement('div');
+      pl.className = 'rl';
+      pl.innerHTML = '<div class="rt">PIN 변경</div><div class="rs">사진 전체를 새 PIN으로 다시 암호화합니다</div>';
+      const pb = document.createElement('button');
+      pb.type = 'button'; pb.className = 'btn tiny'; pb.textContent = '변경';
+      pb.addEventListener('click', () => { startPinChange(); });
+      pinRow.appendChild(pl); pinRow.appendChild(pb);
+      frag.appendChild(pinRow);
+
+      frag.appendChild(sec('폴더'));
+      state.folders.forEach(f => {
+        const r = document.createElement('div');
+        r.className = 'folder-row';
+        const n = document.createElement('div');
+        n.className = 'fn'; n.textContent = '📁 ' + f.name;
+        const c = document.createElement('div');
+        c.className = 'fc'; c.textContent = countFor(f.id) + '장';
+        const ed = document.createElement('button');
+        ed.type = 'button'; ed.className = 'mini'; ed.textContent = '✏️';
+        ed.addEventListener('click', () => { promptRenameFolder(f); });
+        const dl = document.createElement('button');
+        dl.type = 'button'; dl.className = 'mini del'; dl.textContent = '🗑';
+        dl.addEventListener('click', () => { promptDeleteFolder(f); });
+        r.appendChild(n); r.appendChild(c); r.appendChild(ed); r.appendChild(dl);
+        frag.appendChild(r);
+      });
+      const addF = document.createElement('button');
+      addF.type = 'button'; addF.className = 'btn ghost'; addF.style.width = '100%';
+      addF.textContent = '＋ 새 폴더';
+      addF.addEventListener('click', () => promptNewFolder());
+      frag.appendChild(addF);
+
+      frag.appendChild(sec('백업'));
+      const expRow = document.createElement('div');
+      expRow.className = 'row';
+      expRow.innerHTML = '<div class="rl"><div class="rt">암호화 백업 내보내기</div><div class="rs">사진·폴더·즐겨찾기를 암호문 그대로 .svault 파일로 저장</div></div>';
+      const exb = document.createElement('button');
+      exb.type = 'button'; exb.className = 'btn tiny'; exb.textContent = '내보내기';
+      exb.addEventListener('click', () => exportBackup(null));
+      expRow.appendChild(exb);
+      frag.appendChild(expRow);
+
+      const impRow = document.createElement('div');
+      impRow.className = 'row';
+      impRow.innerHTML = '<div class="rl"><div class="rt">백업 가져오기</div><div class="rs">.svault 파일을 골라 그 백업의 PIN을 입력하면 복원됩니다</div></div>';
+      const imb = document.createElement('button');
+      imb.type = 'button'; imb.className = 'btn tiny'; imb.textContent = '가져오기';
+      imb.addEventListener('click', () => { closeSheet(); pickBackupFile(); });
+      impRow.appendChild(imb);
+      frag.appendChild(impRow);
+
+      frag.appendChild(sec('안내'));
+      const info = document.createElement('div');
+      info.className = 'doc-note';
+      info.textContent = '모든 사진은 서버로 전송되지 않고 이 기기 브라우저(IndexedDB)에만 암호화 저장됩니다. 브라우저 데이터 삭제 시 함께 지워지므로 중요 사진은 백업 파일로 보관하세요.';
+      frag.appendChild(info);
+      const stat = document.createElement('div');
+      stat.className = 'doc-note';
+      stat.style.whiteSpace = 'pre-line';
+      stat.textContent = '사진 ' + state.items.length + '장 · 폴더 ' + state.folders.length + '개 · 즐겨찾기 ' +
+        state.items.filter(i => i.meta.fav).length + '장\n키 유도 PBKDF2-SHA256 ' + (state.config ? state.config.iterations.toLocaleString() : '') + '회 · 암호 AES-GCM 256bit';
+      frag.appendChild(stat);
+
+      frag.appendChild(sec('위험'));
+      const wipe = document.createElement('button');
+      wipe.type = 'button'; wipe.className = 'btn'; wipe.style.cssText = 'background:#241419;color:#ff8b8f;border:1px solid #4a2a30;width:100%';
+      wipe.textContent = '전체 데이터 완전 삭제(초기화)';
+      wipe.addEventListener('click', () => {
+        confirmSheet('초기화', '저장된 사진·폴더·PIN을 모두 이 기기에서 지웁니다.\n되돌릴 수 없으니 먼저 백업 파일을 내보내 두세요.', async () => {
+          await wipeAll();
+        }, '모두 삭제');
+      });
+      frag.appendChild(wipe);
+
+      host.appendChild(frag);
+    },
+    actions: [{ label: '닫기', cls: 'ghost', close: true }],
+    onClose: () => { settingsOpen = false; }
+  });
+  settingsOpen = true;
+}
+
+async function wipeAll() {
+  revokeThumbs();
+  await idbClear(['meta', 'items', 'blobs', 'items2', 'blobs2']);
+  try { localStorage.removeItem(SETTINGS_KEY); } catch (e) {}
+  state.key = null; state.config = null; state.items = []; state.folders = [];
+  state.selected.clear(); state.selecting = false;
+  closeViewer(true); closeSheet();
+  $('#grid').innerHTML = ''; $('#albums').innerHTML = '';
+  state.settings = { autoLock: true, calcDisguise: false };
+  showSetup();
+  toast('모든 데이터를 삭제했습니다');
+}
+
+/* ───────────── PIN 변경(재암호화) ───────────── */
+async function startPinChange() {
+  if (!state.key) return;
+  const oldPin = await pinSheet('현재 PIN 입력', '지금 쓰는 PIN을 입력해 주세요');
+  if (!oldPin) return;
+  const cfg = state.config;
+  const oldKey = await deriveKey(oldPin, cfg.salt, cfg.iterations);
+  const ok = await verifyKey(oldKey, cfg);
+  if (!ok) { toast('현재 PIN이 틀렸습니다'); return; }
+
+  const np = await pinSheet('새 PIN 입력', '4~6자리 숫자');
+  if (!np) return;
+  const np2 = await pinSheet('새 PIN 확인', '한 번 더 입력해 주세요');
+  if (!np2) return;
+  if (np !== np2) { toast('새 PIN이 서로 다릅니다'); return; }
+
+  // 표시: 진행 시트
+  const sh = openSheet({
+    title: '사진을 새 PIN으로 다시 암호화하는 중',
+    body: (host) => {
+      const p = document.createElement('div');
+      p.className = 'doc-note';
+      p.textContent = '창을 닫지 말고 잠시 기다려 주세요.';
+      host.appendChild(p);
+      const bar = document.createElement('div');
+      bar.className = 'bar';
+      const i = document.createElement('i');
+      bar.appendChild(i);
+      host.appendChild(bar);
+      const txt = document.createElement('div');
+      txt.className = 'ptext';
+      host.appendChild(txt);
+      openSheet._bar = i; openSheet._txt = txt;
+    },
+    actions: [],
+    dismissible: false
+  });
+
+  try {
+    await rekey(oldPin, np);
+    sh.close();
+    toast('PIN을 바꿨습니다');
+    await loadItems(); renderAll();
+    closeSheet();
+    openSettings();
+  } catch (e) {
+    console.error(e);
+    sh.close();
+    toast('PIN 변경에 실패했습니다: ' + (e && e.message ? e.message : e));
+  }
+}
+
+async function rekey(oldPin, newPin) {
+  const cfg = state.config;
+  const oldKey = await deriveKey(oldPin, cfg.salt, cfg.iterations);
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iterations = cfg.iterations || KDF_ITER;
+  const newKey = await deriveKey(newPin, salt, iterations);
+  const ver = await encBytes(newKey, TE.encode(VERIFY_PLAIN));
+
+  // 폴더 목록 재암호화
+  const fRec = await idbGet('meta', 'folders');
+  let foldersPlain = [];
+  if (fRec) { try { foldersPlain = await decJSON(oldKey, fRec.iv, fRec.ct); } catch (e) { foldersPlain = state.folders.slice(); } }
+
+  const items = await idbGetAll('items');
+  const total = items.length;
+  let done = 0;
+  const bar = openSheet._bar, txt = openSheet._txt;
+
+  // 스테이징 초기화
+  await idbClear(['items2', 'blobs2']);
+
+  for (const it of items) {
+    let meta, thumb, blob, metaPlain;
+    try {
+      metaPlain = await decJSON(oldKey, it.metaIv, it.metaCt);
+      thumb = await decBytes(oldKey, it.thumbIv, it.thumbCt);
+      blob = await idbGet('blobs', it.id);
+      if (!blob) throw new Error('원본 없음');
+      var blobPlain = await decBytes(oldKey, blob.iv, blob.data);
+    } catch (e) {
+      await idbClear(['items2', 'blobs2']);
+      throw new Error('일부 사진을 열 수 없어 중단했습니다 (사진은 그대로 있습니다)');
+    }
+    const me = await encJSON(newKey, metaPlain);
+    const te = await encBytes(newKey, thumb);
+    const be = await encBytes(newKey, blobPlain);
+    await txP(['items2', 'blobs2'], 'readwrite', (tx) => {
+      tx.objectStore('items2').put({ id: it.id, createdAt: it.createdAt, metaIv: me.iv, metaCt: me.ct, thumbIv: te.iv, thumbCt: te.ct });
+      tx.objectStore('blobs2').put({ id: it.id, iv: be.iv, data: be.ct });
+    });
+    done++;
+    if (bar) bar.style.width = Math.round((done / Math.max(1, total)) * 100) + '%';
+    if (txt) txt.textContent = done + ' / ' + total;
+    await sleep(0);
+  }
+
+  const fe = await encJSON(newKey, foldersPlain);
+  const newCfg = {
+    k: 'config', v: 1, kdf: 'PBKDF2-SHA256', iterations: iterations,
+    salt: salt, verIv: ver.iv, verCt: ver.ct, pinLen: newPin.length, createdAt: cfg.createdAt || Date.now()
+  };
+
+  // 한 트랜잭션으로 교체 (실패 시 전체 롤백 → 기존 데이터 보존)
+  await new Promise((res, rej) => {
+    const tx = db.transaction(['items', 'items2', 'blobs', 'blobs2', 'meta'], 'readwrite');
+    const oi = tx.objectStore('items'), ob = tx.objectStore('blobs');
+    const si = tx.objectStore('items2'), sb = tx.objectStore('blobs2'), mt = tx.objectStore('meta');
+    oi.clear();
+    ob.clear();
+    si.getAll().onsuccess = (e) => { for (const r of e.target.result) oi.put(r); };
+    sb.openCursor().onsuccess = (e) => { const c = e.target.result; if (c) { ob.put(c.value); c.delete(); c.continue(); } };
+    si.openCursor().onsuccess = (e) => { const c = e.target.result; if (c) { c.delete(); c.continue(); } };
+    mt.put(newCfg);
+    mt.put({ k: 'folders', iv: fe.iv, ct: fe.ct });
+    tx.oncomplete = res;
+    tx.onerror = () => rej(tx.error);
+    tx.onabort = () => rej(tx.error || new Error('aborted'));
+  });
+
+  state.config = newCfg;
+  state.key = newKey;
+  await loadFolders();
+}
+
+/* ───────────── 백업 ───────────── */
+function stamp() {
+  const d = new Date();
+  const p = (x) => String(x).padStart(2, '0');
+  return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '_' + p(d.getHours()) + p(d.getMinutes());
+}
+
+async function exportBackup(ids) {
+  if (!state.key) return false;
+  const list = ids ? state.items.filter(i => ids.has(i.id)) : state.items;
+  if (!list.length) { toast('내보낼 사진이 없습니다'); return false; }
+  try {
+    const out = [];
+    for (const it of list) {
+      const m = await idbGet('items', it.id);
+      const b = await idbGet('blobs', it.id);
+      if (!m || !b) continue;
+      out.push({
+        createdAt: it.createdAt,
+        m: { iv: B64.enc(m.metaIv), ct: B64.enc(m.metaCt) },
+        t: { iv: B64.enc(m.thumbIv), ct: B64.enc(m.thumbCt) },
+        b: { iv: B64.enc(b.iv), ct: B64.enc(b.data) }
+      });
+    }
+    const fRec = await idbGet('meta', 'folders');
+    const payload = {
+      app: 'svault', v: 1, createdAt: new Date().toISOString(),
+      kdf: { algo: 'PBKDF2-SHA256', iterations: state.config.iterations, salt: B64.enc(state.config.salt) },
+      verifier: { iv: B64.enc(state.config.verIv), ct: B64.enc(state.config.verCt) },
+      folders: fRec ? { iv: B64.enc(fRec.iv), ct: B64.enc(fRec.ct) } : null,
+      items: out
+    };
+    const text = JSON.stringify(payload);
+    const blob = new Blob([text], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '시크릿사진백업_' + stamp() + '.svault';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => { try { URL.revokeObjectURL(url); } catch (e) {} }, 10000);
+    toast(out.length + '장을 백업 파일로 내보냈습니다');
+    return true;
+  } catch (e) {
+    console.error(e);
+    toast('백업 내보내기에 실패했습니다');
+    return false;
+  }
+}
+
+function pickBackupFile() {
+  const input = $('#backupInput');
+  input.value = '';
+  input.click();
+}
+
+async function onBackupPicked() {
+  const input = $('#backupInput');
+  const f = input.files && input.files[0];
+  input.value = '';
+  if (!f) return;
+  let data;
+  try {
+    const txt = await f.text();
+    data = JSON.parse(txt);
+  } catch (e) { toast('백업 파일을 읽을 수 없습니다'); return; }
+  if (!data || data.app !== 'svault' || !data.kdf || !data.verifier || !Array.isArray(data.items)) {
+    toast('이 앱의 백업 파일이 아닙니다');
+    return;
+  }
+  const pin = await pinSheet('백업 PIN 입력', '이 백업을 만들 때 쓰던 PIN을 입력해 주세요');
+  if (!pin) return;
+
+  const sh = openSheet({
+    title: '백업을 불러오는 중',
+    body: (host) => {
+      const p = document.createElement('div');
+      p.className = 'doc-note';
+      p.textContent = '창을 닫지 말고 기다려 주세요.';
+      host.appendChild(p);
+      const bar = document.createElement('div');
+      bar.className = 'bar';
+      const i = document.createElement('i');
+      bar.appendChild(i);
+      host.appendChild(bar);
+      const txt = document.createElement('div');
+      txt.className = 'ptext';
+      host.appendChild(txt);
+      openSheet._bar = i; openSheet._txt = txt;
+    },
+    actions: [],
+    dismissible: false
+  });
+
+  try {
+    const salt = B64.dec(data.kdf.salt);
+    const iterations = data.kdf.iterations || KDF_ITER;
+    const bkey = await deriveKey(pin, salt, iterations);
+    const ok = await verifyKey(bkey, { verIv: B64.dec(data.verifier.iv), verCt: B64.dec(data.verifier.ct) });
+    if (!ok) {
+      sh.close();
+      toast('백업 PIN이 틀렸습니다');
+      return;
+    }
+    const n = await importData(data, bkey, salt, iterations, pin.length);
+    sh.close();
+    state.settings.autoLock = state.settings.autoLock;
+    toast(n + '장을 복원했습니다');
+  } catch (e) {
+    console.error(e);
+    sh.close();
+    toast('복원에 실패했습니다: ' + (e && e.message ? e.message : e));
+  }
+}
+
+async function importData(data, bkey, salt, iterations, pinLen) {
+  const bar = openSheet._bar, txt = openSheet._txt;
+  const cfg = state.config;
+  const fresh = !cfg;
+
+  let foldersPlain = [];
+  if (data.folders) {
+    try { foldersPlain = await decJSON(bkey, B64.dec(data.folders.iv), B64.dec(data.folders.ct)); } catch (e) { foldersPlain = []; }
+  }
+
+  if (fresh) {
+    // 새 기기: 백업의 키·PIN을 그대로 채택
+    const cfgNew = {
+      k: 'config', v: 1, kdf: 'PBKDF2-SHA256', iterations: iterations, salt: salt,
+      verIv: B64.dec(data.verifier.iv), verCt: B64.dec(data.verifier.ct),
+      pinLen: pinLen || 4, createdAt: Date.now()
+    };
+    await idbClear(['meta', 'items', 'blobs', 'items2', 'blobs2']);
+    await txP(['meta'], 'readwrite', (tx) => {
+      tx.objectStore('meta').put(cfgNew);
+      if (data.folders) tx.objectStore('meta').put({ k: 'folders', iv: B64.dec(data.folders.iv), ct: B64.dec(data.folders.ct) });
+    });
+    state.config = cfgNew;
+    state.key = bkey;
+    let done = 0;
+    for (const it of data.items) {
+      await insertItem(
+        { createdAt: it.createdAt || Date.now(), metaIv: B64.dec(it.m.iv), metaCt: B64.dec(it.m.ct), thumbIv: B64.dec(it.t.iv), thumbCt: B64.dec(it.t.ct) },
+        { iv: B64.dec(it.b.iv), data: B64.dec(it.b.ct) }
+      );
+      done++;
+      if (bar) bar.style.width = Math.round((done / Math.max(1, data.items.length)) * 100) + '%';
+      if (txt) txt.textContent = done + ' / ' + data.items.length;
+    }
+    await loadFolders();
+    await loadItems();
+    showScreen('vaultView');
+    renderAll();
+    return done;
+  }
+
+  // 기존 금고가 있으면 현재 키로 재암호화하여 병합
+  if (!state.key) throw new Error('잠금 상태입니다');
+  // 폴더 병합 (이름 기준)
+  const idMap = {};
+  for (const bf of foldersPlain) {
+    let ex = state.folders.find(f => f.name === bf.name);
+    if (!ex) {
+      ex = { id: 'f_' + uid(), name: bf.name, order: state.folders.length, createdAt: Date.now() };
+      state.folders.push(ex);
+    }
+    idMap[bf.id] = ex.id;
+  }
+  await saveFolders();
+
+  let done = 0;
+  for (const it of data.items) {
+    try {
+      const meta = await decJSON(bkey, B64.dec(it.m.iv), B64.dec(it.m.ct));
+      const thumb = await decBytes(bkey, B64.dec(it.t.iv), B64.dec(it.t.ct));
+      const blob = await decBytes(bkey, B64.dec(it.b.iv), B64.dec(it.b.ct));
+      if (meta.folderId && idMap[meta.folderId]) meta.folderId = idMap[meta.folderId];
+      meta.createdAt = meta.createdAt || it.createdAt || Date.now();
+      const me = await encJSON(state.key, meta);
+      const te = await encBytes(state.key, thumb);
+      const be = await encBytes(state.key, blob);
+      await insertItem({ createdAt: meta.createdAt, metaIv: me.iv, metaCt: me.ct, thumbIv: te.iv, thumbCt: te.ct }, { iv: be.iv, data: be.ct });
+      done++;
+    } catch (e) { console.warn('항목 복원 실패', e); }
+    if (bar) bar.style.width = Math.round((done / Math.max(1, data.items.length)) * 100) + '%';
+    if (txt) txt.textContent = done + ' / ' + data.items.length;
+    await sleep(0);
+  }
+  await loadItems();
+  renderAll();
+  return done;
+}
+
+/* ───────────── 자동 잠금 ───────────── */
+function initAutoLock() {
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) maybeAutoLock();
+  });
+  window.addEventListener('pagehide', () => { maybeAutoLock(); });
+  // 파일 선택창에서 돌아오면 보류를 풀어 준다(선택 중 잠기는 것을 막기 위한 짧은 유예)
+  window.addEventListener('focus', () => {
+    setTimeout(() => { if (!state.uploads) state.lockGuardUntil = 0; }, 1200);
+  });
+}
+
+/* ───────────── 부트 ───────────── */
+async function boot() {
+  if (!assertCrypto()) return;
+  loadSettings();
+  try { db = await openDB(); }
+  catch (e) {
+    fatal('이 브라우저에서 저장소(IndexedDB)를 열 수 없습니다.',
+      '시크릿 모드에서는 저장이 막힐 수 있습니다. 일반 탭에서 https://bluerorqual-75.github.io/secret-vault/ 로 다시 열어 주세요. (' + (e && e.message ? e.message : e) + ')');
+    return;
+  }
+  let cfg = null;
+  try { cfg = await idbGet('meta', 'config'); } catch (e) { cfg = null; }
+  if (cfg) { state.config = cfg; showLock(); }
+  else showSetup();
+}
+
+/* 이벤트 배선 */
+function wire() {
+  buildKeypad($('#setupKeypad'), setupKey);
+  buildKeypad($('#lockKeypad'), lockKey);
+  buildCalc();
+
+  $('#restoreBtn').addEventListener('click', () => pickBackupFile());
+  $('#toCalcBtn').addEventListener('click', () => showLock(true));
+
+  $('#lockBtn').addEventListener('click', () => lockVault());
+  $('#setBtn').addEventListener('click', () => { if (state.key) openSettings(); });
+
+  $('#addBtn').addEventListener('click', () => startAdd());
+  $('#fileInput').addEventListener('change', onFilesPicked);
+  $('#backupInput').addEventListener('change', onBackupPicked);
+
+  $('#selBtn').addEventListener('click', () => toggleSelectMode(true));
+  $('#selCancel').addEventListener('click', () => toggleSelectMode(false));
+  $('#selMove').addEventListener('click', () => bulkMove());
+  $('#selDel').addEventListener('click', () => bulkDelete());
+  $('#selExport').addEventListener('click', async () => {
+    if (!state.selected.size) return;
+    const ok = await exportBackup(new Set(state.selected));
+    if (ok) { state.selected.clear(); state.selecting = false; renderGrid(); renderFooter(); }
+  });
+
+  // 그리드 클릭 (선택/뷰어)
+  $('#grid').addEventListener('click', (e) => {
+    const tile = e.target.closest('.tile');
+    if (!tile) return;
+    if (Date.now() < (state.suppressClick || 0)) { state.suppressClick = 0; return; }
+    const id = Number(tile.dataset.id);
+    if (state.selecting) { toggleSelect(id); return; }
+    openViewer(id);
+  });
+  // 길게 누르면 선택 모드
+  let lpTimer = null;
+  $('#grid').addEventListener('pointerdown', (e) => {
+    const tile = e.target.closest('.tile');
+    if (!tile || state.selecting) return;
+    lpTimer = setTimeout(() => {
+      lpTimer = null;
+      state.suppressClick = Date.now() + 900;
+      state.selecting = true;
+      toggleSelect(Number(tile.dataset.id));
+      renderFooter();
+      if (navigator.vibrate) { try { navigator.vibrate(20); } catch (e) {} }
+    }, 520);
+  });
+  ['pointerup', 'pointercancel', 'pointermove'].forEach(ev => {
+    $('#grid').addEventListener(ev, () => { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } });
+  });
+
+  $('#vwClose').addEventListener('click', () => closeViewer());
+  $('#vwPrev').addEventListener('click', () => viewerStep(-1));
+  $('#vwNext').addEventListener('click', () => viewerStep(1));
+  $('#vwFav').addEventListener('click', () => viewerFavorite());
+  $('#vwMove').addEventListener('click', () => viewerMove());
+  $('#vwDown').addEventListener('click', () => {
+    const it = state.items.find(i => i.id === state.viewerItemId);
+    if (it) downloadItem(it);
+  });
+  $('#vwDel').addEventListener('click', () => viewerDelete());
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if ($('#viewer').classList.contains('on')) closeViewer();
+      else if (sheetOpen) closeSheet();
+    }
+  });
+
+  initViewerGestures();
+  initAutoLock();
+}
+
+/* ───────────── 계산기 위장 ───────────── */
+const calcState = { expr: '', done: false, out: null };
+
+function buildCalc() {
+  const el = $('#calcKeys');
+  el.innerHTML = '';
+  const keys = [
+    { k: 'C', cls: 'fn' }, { k: '⌫', cls: 'fn' }, { k: '%', cls: 'fn' }, { k: '÷', cls: 'op' },
+    { k: '7' }, { k: '8' }, { k: '9' }, { k: '×', cls: 'op' },
+    { k: '4' }, { k: '5' }, { k: '6' }, { k: '−', cls: 'op' },
+    { k: '1' }, { k: '2' }, { k: '3' }, { k: '+', cls: 'op' },
+    { k: '0', cls: 'wide' }, { k: '.' }, { k: '=', cls: 'eq' }
+  ];
+  keys.forEach(o => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = o.k;
+    if (o.cls) b.className = o.cls;
+    b.dataset.k = o.k;
+    b.addEventListener('click', () => calcKey(o.k));
+    el.appendChild(b);
+  });
+  // 디스플레이 길게 누르면 PIN 키패드로 (위장 해제)
+  let lp = null;
+  const disp = $('.calc-screen');
+  disp.addEventListener('pointerdown', () => { lp = setTimeout(() => { state.settings.calcDisguise = false; saveSettings(); lockBuf = ''; showLock(); }, 900); });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => disp.addEventListener(ev, () => { if (lp) { clearTimeout(lp); lp = null; } }));
+}
+
+function tailNumber(expr) {
+  const m = expr.match(/(\d*\.?\d+)$/);
+  return m ? m[1] : '';
+}
+function renderCalc() {
+  $('#calcExpr').textContent = calcState.expr.replace(/\*/g, '×').replace(/\//g, '÷');
+  const big = calcState.out != null ? String(calcState.out) : (tailNumber(calcState.expr) || '0');
+  $('#calcOut').textContent = big;
+}
+
+function evalCalc(expr) {
+  let e = expr.replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-');
+  if (!/^[0-9.+\-*/]+$/.test(e)) return null;
+  e = e.replace(/[+\-*/]+$/, '');
+  if (!e) return null;
+  try {
+    const v = Function('"use strict";return (' + e + ')')();
+    if (typeof v !== 'number' || !isFinite(v)) return null;
+    return Math.round(v * 1e10) / 1e10;
+  } catch (err) { return null; }
+}
+
+async function calcKey(k) {
+  if (k === 'C') { calcState.expr = ''; calcState.out = null; calcState.done = false; renderCalc(); return; }
+  if (k === '⌫') {
+    if (calcState.done) { calcState.expr = ''; calcState.out = null; calcState.done = false; }
+    else calcState.expr = calcState.expr.slice(0, -1);
+    renderCalc();
+    return;
+  }
+  if (k === '=') {
+    const raw = calcState.expr.replace(/\s/g, '');
+    if (/^\d{4,6}$/.test(raw) && state.config && raw.length === state.config.pinLen) {
+      const ok = await tryUnlock(raw, false);
+      if (ok) { calcState.expr = ''; calcState.out = null; calcState.done = false; return; }
+      // 틀렸을 때는 틀렸다는 티를 내지 않고 계산 결과처럼 숫자만 보여 준다
+      calcState.out = raw; calcState.done = true; renderCalc(); return;
+    }
+    const v = evalCalc(raw);
+    calcState.out = v === null ? 'Error' : String(v);
+    calcState.done = true;
+    renderCalc();
+    return;
+  }
+  if (k === '%') {
+    calcState.expr = calcState.expr.replace(/(\d*\.?\d+)$/, (m) => String(parseFloat(m) / 100));
+    calcState.out = null;
+    renderCalc();
+    return;
+  }
+  if (calcState.done) {
+    if (/[+\-×÷]/.test(k)) calcState.expr = String(calcState.out === 'Error' ? 0 : calcState.out) + k;
+    else calcState.expr = k;
+    calcState.done = false;
+    calcState.out = null;
+    renderCalc();
+    return;
+  }
+  if (/[0-9]/.test(k)) {
+    const tail = tailNumber(calcState.expr);
+    if (tail === '0' && k !== '.') calcState.expr = calcState.expr.slice(0, -1);
+  }
+  if (k === '.' && /\.\d*$/.test(calcState.expr)) return;
+  calcState.expr += k;
+  calcState.out = null;
+  renderCalc();
+}
+
+/* 시작 */
+window.__svault = {
+  isUnlocked: () => !!state.key,
+  itemCount: () => state.items.length,
+  folderNames: () => state.folders.map(f => f.name),
+  view: () => state.view,
+  snap: () => ({
+    unlocked: !!state.key, items: state.items.length, folders: state.folders.length,
+    view: state.view, folderId: state.folderId, selecting: state.selecting,
+    selected: state.selected.size, settings: Object.assign({}, state.settings),
+    screen: ['setupView', 'lockView', 'vaultView'].filter(s => $('#' + s).classList.contains('on'))[0],
+    calc: { expr: calcState.expr, out: calcState.out }
+  })
+};
+
+wire();
+boot();
+</script>
+</body>
+</html>
