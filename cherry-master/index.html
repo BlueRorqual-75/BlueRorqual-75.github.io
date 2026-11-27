@@ -1,0 +1,1419 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a0508">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>체리마스터 · 8라인 슬롯</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  [hidden]{display:none !important}
+  html,body{height:100%;margin:0;overscroll-behavior:none}
+  body{
+    background:#05060a;color:#eef2f8;
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic","Segoe UI",Roboto,sans-serif;
+    height:100vh;height:100dvh;overflow:hidden;
+    display:flex;align-items:center;justify-content:center;
+    user-select:none;-webkit-user-select:none;
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font-family:inherit;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+
+  /* ---------- cabinet ---------- */
+  .cab{
+    position:relative;width:100%;max-width:430px;height:100vh;height:100dvh;max-height:100vh;max-height:100dvh;
+    display:flex;flex-direction:column;gap:6px;
+    padding:6px 10px calc(6px + env(safe-area-inset-bottom));
+    background:
+      radial-gradient(130% 55% at 50% 0%,rgba(255,45,111,.16),transparent 62%),
+      radial-gradient(90% 50% at 50% 110%,rgba(255,176,46,.07),transparent 60%),
+      linear-gradient(180deg,#120a12 0%,#0a0810 42%,#06070a 100%);
+    overflow:hidden;
+  }
+  .cab::after{
+    content:"";position:absolute;inset:0;pointer-events:none;z-index:60;
+    background:repeating-linear-gradient(180deg,rgba(255,255,255,.05) 0 1px,rgba(0,0,0,0) 1px 3px);
+    opacity:.30;
+  }
+
+  /* ---------- marquee ---------- */
+  .marquee{
+    position:relative;flex:0 0 auto;border-radius:12px;padding:0 10px;
+    background:linear-gradient(180deg,#3d0f24,#1b0711 72%,#12060c);
+    border:1px solid #611a36;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 0 20px rgba(255,45,111,.18);
+    overflow:hidden;
+  }
+  .bulbs{
+    position:absolute;left:0;right:0;top:0;height:6px;
+    background-image:radial-gradient(circle at 3px 3px,#ffd166 0 1.6px,rgba(255,209,102,.28) 1.6px 2.8px,transparent 2.8px);
+    background-size:12px 6px;background-repeat:repeat-x;animation:bulb 1.1s steps(2,end) infinite;
+  }
+  @keyframes bulb{50%{opacity:.35}}
+  .brand{display:flex;align-items:center;gap:9px;padding-top:6px;position:relative;z-index:1}
+  .orn{font-size:21px;line-height:1;filter:drop-shadow(0 0 7px rgba(255,45,111,.85))}
+  .titles{flex:1;min-width:0;text-align:left;padding:2px 0 5px}
+  h1{
+    margin:0;font-family:Impact,"Arial Black","Noto Sans KR",sans-serif;
+    font-size:24px;line-height:1.02;letter-spacing:.02em;white-space:nowrap;
+    color:#ffe3ec;
+    text-shadow:0 0 4px #ff2d6f,0 0 13px #ff2d6f,0 0 28px rgba(255,45,111,.75),0 2px 0 #6c0022;
+  }
+  h1 em{font-style:normal;color:#ffd166;text-shadow:0 0 4px #ffb02e,0 0 15px rgba(255,176,46,.85),0 2px 0 #6b3f00}
+  .tag{margin:2px 0 0;font-size:9px;letter-spacing:.16em;color:#ff9ab4;opacity:.92;white-space:nowrap}
+  .iconbtn{
+    flex:0 0 auto;width:38px;height:38px;border-radius:10px;
+    display:flex;align-items:center;justify-content:center;font-size:18px;
+    background:linear-gradient(180deg,#2a1018,#160810);color:#ffe0ea;
+    border:1px solid #6a2039;box-shadow:0 2px 0 #0a0407,inset 0 1px 0 rgba(255,255,255,.14);
+    cursor:pointer;
+  }
+  .iconbtn:active{transform:translateY(1px)}
+  .iconbtn[aria-pressed="false"]{opacity:.55;filter:grayscale(1)}
+
+  /* ---------- LED ---------- */
+  .leds{
+    flex:0 0 auto;display:flex;gap:5px;padding:5px 8px 6px;border-radius:10px;
+    background:linear-gradient(180deg,#0c0e14,#05060a);
+    border:1px solid #272c37;
+    box-shadow:inset 0 0 18px #000,0 1px 0 rgba(255,255,255,.05);
+  }
+  .led{min-width:0;display:flex;flex-direction:column;gap:1px}
+  .led.credit{flex:1.45}
+  .led.bet{flex:.85}
+  .led.win{flex:1.15}
+  .led .lab{font-size:8px;font-weight:800;letter-spacing:.17em;color:#69717f}
+  .digits{display:flex;gap:2px;justify-content:flex-end;height:26px;transform:skewX(-4deg)}
+  .dg{height:100%;width:auto;display:block;overflow:visible}
+  .sg{fill:currentColor;opacity:.055}
+  .sg.on{opacity:1;filter:drop-shadow(0 0 3px currentColor)}
+  .led.credit .digits{color:#4dffb3}
+  .led.bet .digits{color:#ffc247}
+  .led.win .digits{color:#ff5a7a}
+  .led.bet .digits{justify-content:center}
+  .led.win.blink .digits{animation:ledblink .7s steps(2,end) infinite}
+  @keyframes ledblink{50%{opacity:.35}}
+
+  /* ---------- line lamps ---------- */
+  .lamps{flex:0 0 auto;height:14px;display:flex;gap:4px;align-items:center;justify-content:center}
+  .lamp{
+    flex:1;max-width:46px;height:12px;border-radius:6px;background:#12151c;
+    border:1px solid #262b36;display:flex;align-items:center;justify-content:center;
+    font-size:8px;font-weight:800;color:#4c5361;letter-spacing:.04em;transition:all .15s ease;
+  }
+  .lamp.on{background:linear-gradient(180deg,#ffe38a,#ffb02e);color:#3a2200;border-color:#ffd166;box-shadow:0 0 10px rgba(255,190,60,.85)}
+
+  /* ---------- stage / reels ---------- */
+  .stage{
+    position:relative;flex:1 1 auto;min-height:0;padding:5px;border-radius:14px;
+    background:linear-gradient(180deg,#181c25,#0a0c11);
+    border:1px solid #3b4253;
+    box-shadow:inset 0 0 0 2px #05070b,inset 0 0 30px rgba(255,45,111,.10),0 10px 26px rgba(0,0,0,.55);
+  }
+  .stage::before{content:"";position:absolute;inset:3px;border-radius:11px;border:1px solid rgba(255,45,111,.28);pointer-events:none;z-index:3}
+  .grid{
+    position:relative;height:100%;display:flex;gap:4px;border-radius:9px;overflow:hidden;
+    background:#04050a;box-shadow:inset 0 0 20px #000;
+  }
+  .reel{position:relative;flex:1;overflow:hidden;background:#0b0d12;border-radius:6px}
+  .reel::after{
+    content:"";position:absolute;inset:0;pointer-events:none;z-index:2;
+    background:
+      linear-gradient(180deg,rgba(0,0,0,.55),transparent 12%,transparent 88%,rgba(0,0,0,.55)),
+      linear-gradient(90deg,rgba(0,0,0,.34),transparent 16%,transparent 84%,rgba(0,0,0,.34));
+  }
+  .strip{position:absolute;left:0;top:0;right:0;will-change:transform}
+  .tile{height:var(--tileh,100px);padding:2px;display:flex;font-size:calc(var(--tileh,100px) * .46)}
+  .face{
+    position:relative;flex:1;display:flex;align-items:center;justify-content:center;border-radius:8px;
+    background:linear-gradient(180deg,#fffdf4,#f3ead2 58%,#e1d3b1);
+    box-shadow:inset 0 0 0 1px rgba(122,92,42,.30),inset 0 -8px 12px rgba(122,92,42,.10);
+    transition:box-shadow .15s ease,filter .15s ease;
+  }
+  .face::after{content:"";position:absolute;inset:0;border-radius:8px;background:linear-gradient(158deg,rgba(255,255,255,.5),transparent 46%);pointer-events:none}
+  .sym{line-height:1;filter:drop-shadow(0 2px 1px rgba(0,0,0,.16));position:relative;z-index:1}
+  .sym.bar{
+    font-family:Impact,"Arial Black",sans-serif;font-size:.34em;letter-spacing:.05em;color:#ffd45e;
+    background:#14110c;padding:.24em .34em .16em;border-radius:.2em;border:.085em solid #ffd45e;
+    text-shadow:0 0 .2em rgba(255,212,94,.6);transform:rotate(-3deg);
+  }
+  .sym.seven{
+    font-family:Impact,"Arial Black",Arial,sans-serif;font-size:.70em;color:#e8163c;
+    -webkit-text-stroke:.03em #fff;
+    text-shadow:0 .045em 0 rgba(120,0,24,.45),0 0 .12em rgba(255,47,94,.45);
+  }
+  .tile.hit .face{box-shadow:0 0 0 2px #ffd166,0 0 18px rgba(255,209,102,.9),inset 0 0 12px rgba(255,209,102,.4)}
+  .grid.haswin .tile:not(.hit) .face{filter:brightness(.66) saturate(.85)}
+  .wins{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:4;overflow:visible}
+  .wline{stroke:#ffd166;stroke-width:4.5;stroke-linecap:round;fill:none;opacity:0}
+  .wline.on{
+    opacity:.92;stroke-dasharray:460;stroke-dashoffset:460;
+    filter:drop-shadow(0 0 5px #ffb02e) drop-shadow(0 0 12px #ff7a18);
+    animation:draw .5s ease-out forwards;
+  }
+  @keyframes draw{to{stroke-dashoffset:0}}
+
+  /* ---------- ticker ---------- */
+  .ticker{
+    flex:0 0 auto;height:30px;display:flex;align-items:center;justify-content:center;
+    border-radius:8px;background:#080a0f;border:1px solid #232833;
+    color:#ffd166;font-size:12.5px;font-weight:700;letter-spacing:.01em;padding:0 8px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;
+  }
+  .ticker.alert{color:#ff9ab4;animation:msgflash .4s ease-out}
+  .ticker.hit{color:#8affc4;animation:msgflash .4s ease-out}
+  @keyframes msgflash{0%{filter:brightness(2.2)}100%{filter:brightness(1)}}
+
+  /* ---------- keypad ---------- */
+  .pad{flex:0 0 auto;display:flex;flex-direction:column;gap:6px}
+  .keystack{position:relative;height:44px;flex:0 0 auto}
+  .keystack.collapsed{height:0;overflow:hidden}
+  .keystack .rowkeys{position:absolute;inset:0;height:100%}
+  .rowkeys{display:flex;gap:6px;height:44px}
+  .key{
+    flex:1;height:44px;border-radius:10px;border:1px solid #454c5e;
+    background:linear-gradient(180deg,#2b3140,#171a22);color:#e9eef8;
+    font-weight:800;font-size:13px;letter-spacing:.06em;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+    box-shadow:0 3px 0 #08090d,inset 0 1px 0 rgba(255,255,255,.12);
+    transition:transform .06s,box-shadow .06s,opacity .15s;cursor:pointer;
+  }
+  .key:active:not(:disabled){transform:translateY(2px);box-shadow:0 1px 0 #08090d,inset 0 1px 0 rgba(255,255,255,.12)}
+  .key:disabled{opacity:.3;cursor:default}
+  .key i{font-style:normal;font-size:8.5px;font-weight:600;color:#8b94a6;letter-spacing:.02em}
+  .key.stop{border-color:#7a2536;background:linear-gradient(180deg,#3a1620,#201016);color:#ffd9e3}
+  .key.stop:not(:disabled){box-shadow:0 3px 0 #11060a,inset 0 1px 0 rgba(255,255,255,.14),0 0 10px rgba(255,45,111,.18)}
+  .key.stop.ready{border-color:#ff5470;animation:readypulse 1s ease-in-out infinite}
+  @keyframes readypulse{50%{box-shadow:0 3px 0 #11060a,0 0 16px rgba(255,84,112,.6)}}
+  .key.stop b{font-size:13.5px;letter-spacing:.08em}
+  .key.stop i{color:#c98a99}
+  .key.take{border-color:#2f7a54;background:linear-gradient(180deg,#143a29,#0b2118);color:#b7ffd9}
+  .key.double{border-color:#8a6a1e;background:linear-gradient(180deg,#3d2f0d,#231a06);color:#ffe6a3}
+  .key.bet{height:38px;font-size:12px}
+  .key.small{height:38px;font-size:11.5px}
+  .key.gold{border-color:#8a6a1e;color:#ffe6a3;background:linear-gradient(180deg,#332808,#1c1604)}
+  .mainrow{display:flex;align-items:center;gap:8px;height:66px}
+  .coin{
+    flex:0 0 auto;width:62px;height:62px;border-radius:50%;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;
+    background:radial-gradient(circle at 35% 28%,#fff3b0,#ffcf4d 42%,#d99005 78%,#8a5900);
+    color:#3a2200;border:2px solid #ffe9a1;
+    box-shadow:0 4px 0 #5f3c00,0 0 16px rgba(255,190,60,.35),inset 0 2px 3px rgba(255,255,255,.65);
+    font-weight:900;
+  }
+  .coin .coinface{font-size:19px;line-height:1;filter:drop-shadow(0 1px 0 rgba(255,255,255,.4))}
+  .coin .coinlabel{font-size:9.5px;letter-spacing:.02em;margin-top:-1px}
+  .coin:active{transform:translateY(2px);box-shadow:0 2px 0 #5f3c00,inset 0 2px 3px rgba(255,255,255,.5)}
+  .coin.pulse{animation:coinpulse .45s ease-out}
+  @keyframes coinpulse{0%{transform:scale(1)}45%{transform:scale(1.1)}100%{transform:scale(1)}}
+  .spin{
+    flex:1;height:66px;border-radius:34px;cursor:pointer;
+    border:2px solid #ffb02e;
+    background:linear-gradient(180deg,#ffe486,#ffb02e 46%,#e07800);
+    color:#2a1500;font-family:Impact,"Arial Black","Noto Sans KR",sans-serif;
+    font-size:24px;letter-spacing:.09em;
+    box-shadow:0 4px 0 #7a3c00,0 0 20px rgba(255,176,46,.35),inset 0 2px 0 rgba(255,255,255,.55);
+    transition:transform .06s,box-shadow .06s;
+  }
+  .spin:active:not(:disabled){transform:translateY(3px);box-shadow:0 1px 0 #7a3c00,inset 0 2px 0 rgba(255,255,255,.4)}
+  .spin:disabled{opacity:.4;cursor:default}
+  .spin.allstop{
+    background:linear-gradient(180deg,#ff93a5,#ff2d55 46%,#b3001f);color:#fff;border-color:#ff9aae;
+    box-shadow:0 4px 0 #5e0010,0 0 22px rgba(255,45,85,.55),inset 0 2px 0 rgba(255,255,255,.35);
+    animation:allstoppulse .65s ease-in-out infinite;
+  }
+  @keyframes allstoppulse{50%{box-shadow:0 4px 0 #5e0010,0 0 34px rgba(255,45,85,.8),inset 0 2px 0 rgba(255,255,255,.35)}}
+  .side{
+    flex:0 0 auto;width:58px;height:58px;border-radius:14px;cursor:pointer;padding:0;
+    border:1px solid #4a5164;background:linear-gradient(180deg,#272d3a,#151821);
+    color:#dbe3f0;font-weight:800;font-size:10.5px;line-height:1.2;letter-spacing:0;white-space:nowrap;
+    box-shadow:0 3px 0 #08090d,inset 0 1px 0 rgba(255,255,255,.1);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .side:active{transform:translateY(2px);box-shadow:0 1px 0 #08090d}
+
+  /* ---------- double up ---------- */
+  .duel{
+    position:absolute;inset:4px;z-index:20;border-radius:11px;
+    background:radial-gradient(120% 90% at 50% 0%,#2a1220,#0a0508 72%);
+    border:2px solid #ffcf5c;
+    box-shadow:0 0 0 1px #000,inset 0 0 34px rgba(255,207,92,.12);
+    display:flex;flex-direction:column;align-items:center;justify-content:space-between;
+    padding:7px 10px 8px;gap:3px;overflow:hidden;
+  }
+  .duel::after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(180deg,rgba(255,255,255,.04) 0 1px,transparent 1px 3px)}
+  .duel-head{font-family:Impact,"Arial Black",sans-serif;font-size:19px;letter-spacing:.12em;color:#ffe8a8;text-shadow:0 0 12px rgba(255,207,92,.75);line-height:1}
+  .duel-streak{display:flex;gap:5px;align-items:center;height:9px}
+  .duel-streak span{width:9px;height:9px;border-radius:50%;background:#2a2317;border:1px solid #5c4a1e}
+  .duel-streak span.on{background:#ffd166;box-shadow:0 0 8px #ffb02e;border-color:#ffe9a1}
+  .duel-amt{font-family:"Courier New",monospace;font-weight:900;font-size:25px;line-height:1;color:#ffd166;text-shadow:0 0 14px rgba(255,176,46,.65)}
+  .duel-amt small{font-size:11px;color:#c9a24a;margin-left:2px;letter-spacing:.05em}
+  .cardbox{position:relative;flex:1 1 auto;min-height:110px;width:100%;display:flex;align-items:center;justify-content:center;perspective:900px}
+  .card{width:110px;height:156px;position:relative;transform-style:preserve-3d;transition:transform .5s cubic-bezier(.3,.9,.3,1)}
+  .card.flipped{transform:rotateY(180deg)}
+  .cf{position:absolute;inset:0;border-radius:9px;backface-visibility:hidden;-webkit-backface-visibility:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 8px 18px rgba(0,0,0,.6)}
+  .cf.back{background:repeating-linear-gradient(45deg,#1b2750 0 6px,#22306a 6px 12px);border:2px solid #d8dbe6}
+  .cf.back::before{content:"";position:absolute;inset:7px;border-radius:5px;border:1px solid rgba(255,255,255,.28)}
+  .cf.back::after{content:"♠";font-size:32px;color:rgba(255,255,255,.62);text-shadow:0 0 10px rgba(120,170,255,.6)}
+  .cf.front{background:linear-gradient(180deg,#fff,#f1f1f1);border:2px solid #d8dbe6;transform:rotateY(180deg);color:#111;gap:1px}
+  .cf.front .rank{font-family:Impact,"Arial Black",sans-serif;font-size:42px;line-height:.95}
+  .cf.front .suit{font-size:28px;line-height:1}
+  .cf.front .suit.red{color:#d7143a}
+  .cf.front .suit.black{color:#131720}
+  .duel-msg{min-height:18px;font-size:11.5px;font-weight:700;color:#ffe6b8;text-align:center;line-height:1.25;padding:0 2px}
+  .duel-msg.bad{color:#ff8fa3}
+  .duel-msg.good{color:#8affc4}
+  .duel-btns{display:flex;gap:7px;width:100%}
+  .dbtn{
+    flex:1;height:46px;border-radius:11px;font-weight:900;font-size:13px;letter-spacing:.06em;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;
+    border:1px solid #4a5164;background:linear-gradient(180deg,#2b3140,#171a22);color:#eef2f8;
+    box-shadow:0 3px 0 #08090d,inset 0 1px 0 rgba(255,255,255,.12);
+  }
+  .dbtn small{font-size:8.5px;font-weight:600;color:#9aa4b6;letter-spacing:.02em}
+  .dbtn.high{background:linear-gradient(180deg,#5c1424,#2a0a12);border-color:#ff5470;color:#ffd9e3;box-shadow:0 3px 0 #12050a,inset 0 1px 0 rgba(255,255,255,.14),0 0 14px rgba(255,45,85,.25)}
+  .dbtn.low{background:linear-gradient(180deg,#10305c,#08172a);border-color:#4d8dff;color:#d4e5ff;box-shadow:0 3px 0 #050c14,inset 0 1px 0 rgba(255,255,255,.14),0 0 14px rgba(77,141,255,.25)}
+  .dbtn:active:not(:disabled){transform:translateY(2px);box-shadow:0 1px 0 #08090d}
+  .dbtn:disabled{opacity:.32;cursor:default}
+  .duel-foot{display:flex;gap:7px;width:100%}
+  .duel-foot .dbtn{height:30px;font-size:11px;letter-spacing:.08em;background:linear-gradient(180deg,#222733,#12151c)}
+  .duel-foot .dbtn.take{color:#b7ffd9;border-color:#2f7a54}
+  .duel-foot .dbtn.half{color:#ffe6a3;border-color:#8a6a1e}
+
+  /* ---------- paytable modal ---------- */
+  .modal{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.74);display:flex;align-items:center;justify-content:center;padding:12px}
+  .sheet{
+    width:100%;max-width:420px;max-height:90dvh;display:flex;flex-direction:column;
+    background:linear-gradient(180deg,#181c25,#0a0c11);border:1px solid #4a5164;border-radius:16px;
+    box-shadow:0 24px 60px #000;overflow:hidden;
+  }
+  .sheet-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #262b36}
+  .sheet-head h2{margin:0;font-size:16px;letter-spacing:.03em}
+  .sheet-head button{
+    border:1px solid #454c5e;background:#1b1f28;color:#dbe3f0;border-radius:9px;
+    padding:7px 11px;font-size:12px;font-weight:700;cursor:pointer;
+  }
+  .sheet-body{overflow:auto;padding:12px 14px 18px;font-size:12.5px;color:#c9d1de;line-height:1.55;-webkit-overflow-scrolling:touch}
+  .sheet-body h3{margin:16px 0 7px;font-size:12.5px;color:#ffd166;letter-spacing:.05em}
+  .sheet-body p{margin:0 0 8px}
+  .note{background:#12151c;border:1px solid #232833;border-radius:9px;padding:8px 10px;color:#a9b3c2;font-size:11.5px}
+  .ptable{display:flex;flex-direction:column;gap:3px}
+  .prow{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:8px;background:#12151c;border:1px solid #202430}
+  .prow .symbox{flex:0 0 38px;text-align:center;font-size:17px;line-height:1.3}
+  .prow .symbox .sym.bar{font-size:11px;padding:.2em .3em .12em;border-width:1px}
+  .prow .symbox .sym.seven{font-size:20px}
+  .prow .pname{flex:1;min-width:0;font-weight:700;color:#e6ecf6}
+  .prow .pmult{font-weight:900;color:#ffd166;font-size:12px;white-space:nowrap}
+  .prow .pcr{flex:0 0 62px;text-align:right;color:#8affc4;font-weight:800;font-size:11.5px;white-space:nowrap}
+  .prow.jack{background:linear-gradient(90deg,#2a1220,#14151c);border-color:#8a6a1e}
+  .lines8{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+  .l8{background:#12151c;border:1px solid #202430;border-radius:8px;padding:5px 3px;display:flex;flex-direction:column;align-items:center;gap:3px}
+  .l8g{display:grid;grid-template-columns:repeat(3,7px);gap:2px}
+  .l8g i{width:7px;height:7px;border-radius:2px;background:#2a3140;display:block}
+  .l8g i.on{background:#ffd166;box-shadow:0 0 5px #ffb02e}
+  .l8 b{font-size:9px;color:#ffd166}
+  .l8 span{font-size:8px;color:#8b94a6;white-space:nowrap}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:4px 8px;margin-top:8px;font-size:11.5px;color:#a9b3c2}
+  .stats b{color:#e6ecf6}
+  .rules{margin:0;padding-left:16px}
+  .rules li{margin:3px 0}
+
+  @media (max-height:760px){
+    .marquee h1{font-size:21px}
+    .leds{padding:4px 7px 5px}
+    .digits{height:23px}
+    .stage{padding:4px}
+    .keystack{height:40px}
+    .rowkeys{height:40px}
+    .key{height:40px}
+    .key.bet,.key.small{height:34px}
+    .mainrow{height:60px}
+    .coin{width:56px;height:56px}
+    .spin{height:60px;font-size:22px}
+    .side{width:52px;height:52px}
+    .pad{gap:5px}
+    .rowkeys{gap:5px}
+    .card{width:92px;height:130px}
+  }
+  @media (max-height:680px){
+    .marquee{padding:0 8px}
+    .titles{padding-bottom:3px}
+    .marquee h1{font-size:19px}
+    .tag{font-size:8px}
+    .leds{padding:3px 6px 4px}
+    .digits{height:20px}
+    .lamps{height:11px}
+    .lamp{height:10px;font-size:7px}
+    .ticker{height:26px;font-size:11.5px}
+    .cab{gap:5px}
+  }
+</style>
+</head>
+<body>
+<div class="cab" id="cab">
+  <header class="marquee">
+    <div class="bulbs" aria-hidden="true"></div>
+    <div class="brand">
+      <span class="orn" aria-hidden="true">🍒</span>
+      <div class="titles">
+        <h1>CHERRY <em>MASTER</em></h1>
+        <p class="tag">체리마스터 · 8 LINE SLOT</p>
+      </div>
+      <button id="soundBtn" class="iconbtn" aria-label="소리 켜기/끄기" aria-pressed="true">🔊</button>
+    </div>
+  </header>
+
+  <section class="leds" aria-label="점수판">
+    <div class="led credit"><span class="lab">CREDIT</span><div class="digits" id="ledCredit"></div></div>
+    <div class="led bet"><span class="lab">BET</span><div class="digits" id="ledBet"></div></div>
+    <div class="led win" id="ledWinBox"><span class="lab">WIN</span><div class="digits" id="ledWin"></div></div>
+  </section>
+
+  <div class="lamps" id="lamps" aria-hidden="true"></div>
+
+  <section class="stage" id="stage">
+    <div class="grid" id="grid">
+      <div class="reel" data-reel="0"><div class="strip"></div></div>
+      <div class="reel" data-reel="1"><div class="strip"></div></div>
+      <div class="reel" data-reel="2"><div class="strip"></div></div>
+      <svg class="wins" id="wins" viewBox="0 0 300 300" preserveAspectRatio="none" aria-hidden="true"></svg>
+    </div>
+
+    <div class="duel" id="duel" hidden>
+      <div class="duel-head">DOUBLE UP</div>
+      <div class="duel-streak" id="duelStreak" aria-hidden="true"></div>
+      <div class="duel-amt" id="duelAmt">0<small>점</small></div>
+      <div class="cardbox">
+        <div class="card" id="duelCard">
+          <div class="cf back"></div>
+          <div class="cf front" id="duelFront"></div>
+        </div>
+      </div>
+      <div class="duel-msg" id="duelMsg">HIGH 또는 LOW를 선택</div>
+      <div class="duel-btns">
+        <button class="dbtn high" id="btnHigh" aria-label="하이 8부터 K까지">HIGH ↑<small>8 · 9 · 10 · J · Q · K</small></button>
+        <button class="dbtn low" id="btnLow" aria-label="로우 A부터 6까지">LOW ↓<small>A · 2 · 3 · 4 · 5 · 6</small></button>
+      </div>
+      <div class="duel-foot">
+        <button class="dbtn take" id="btnDuelTake">TAKE 정산</button>
+        <button class="dbtn half" id="btnDuelHalf">HALF 절반 저장</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="ticker" id="ticker" aria-live="polite"><span id="tickerText">START를 누르면 스핀! STOP 1·2·3으로 직접 멈춘다</span></div>
+
+  <section class="pad">
+    <div class="keystack">
+      <div class="rowkeys" id="stopRow">
+        <button class="key stop" id="stop0" aria-label="1번 릴 정지"><b>STOP</b><i>1번 릴</i></button>
+        <button class="key stop" id="stop1" aria-label="2번 릴 정지"><b>STOP</b><i>2번 릴</i></button>
+        <button class="key stop" id="stop2" aria-label="3번 릴 정지"><b>STOP</b><i>3번 릴</i></button>
+      </div>
+      <div class="rowkeys" id="winRow" style="visibility:hidden">
+        <button class="key take" id="takeBtn" aria-label="당첨금 먹기">TAKE<i>당첨금 먹기</i></button>
+        <button class="key double" id="doubleBtn" aria-label="더블업 도전">DOUBLE<i>하이로우 도전</i></button>
+      </div>
+    </div>
+    <div class="rowkeys" style="height:38px">
+      <button class="key small bet" id="betMinus" aria-label="베트 줄이기">BET −</button>
+      <button class="key small bet" id="betPlus" aria-label="베트 늘리기">BET +</button>
+      <button class="key small gold" id="maxBet" aria-label="최대 베트">MAX BET</button>
+    </div>
+    <div class="mainrow">
+      <button class="coin" id="coinBtn" aria-label="코인 1000점 충전">
+        <span class="coinface" aria-hidden="true">🪙</span>
+        <span class="coinlabel">+1,000</span>
+      </button>
+      <button class="spin" id="spinBtn">START</button>
+      <button class="side" id="payBtn" aria-label="배당표 열기">배당표</button>
+    </div>
+  </section>
+</div>
+
+<div class="modal" id="payModal" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="payTitle">
+    <div class="sheet-head">
+      <h2 id="payTitle">🍒 배당표 · 8라인</h2>
+      <button id="payClose" aria-label="배당표 닫기">닫기 ✕</button>
+    </div>
+    <div class="sheet-body">
+      <p class="note">BET은 <b>8개 라인에 똑같이</b> 나뉜다. 아래 배수는 <b>라인당 BET(BET÷8)</b> 기준이고, 괄호 안은 지금 BET에서의 실제 점수다. 같은 라인에 3개가 나오면 당첨.</p>
+      <div class="ptable" id="ptable"></div>
+      <h3>8개 당첨 라인</h3>
+      <div class="lines8" id="lines8"></div>
+      <h3>더블업 하이로우</h3>
+      <ul class="rules">
+        <li>당첨되면 <b>TAKE</b>로 바로 먹거나 <b>DOUBLE</b>로 도전한다.</li>
+        <li>카드가 <b>8~K</b>면 HIGH, <b>A~6</b>면 LOW. 맞추면 당첨금 <b>2배</b>.</li>
+        <li><b>7이 나오면 PUSH</b> — 무승부라 잃지 않고 다시 고른다. 이때 <b>HALF</b>로 절반만 저장하고 절반으로 계속할 수도 있다.</li>
+        <li>틀리면 그때의 당첨금은 <b>0점</b>. 최대 <b>5연승</b>까지이며, 5연승이면 자동 정산된다.</li>
+      </ul>
+      <h3>기록</h3>
+      <div class="stats" id="stats"></div>
+      <p class="note" style="margin-top:10px">크레딧·최고 기록·스핀/당첨 통계는 이 폰에 자동 저장된다. 크레딧이 떨어지면 코인 버튼으로 1,000점씩 무료 충전.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  /* ================= constants ================= */
+  var KEY = 'cherryMaster.v1';
+  var BETS = [8, 16, 40, 80];
+  var L = 30;                       // reel strip length
+  var RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+  var RANK_VAL = {A:1,'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,J:11,Q:12,K:13};
+  var SUITS = [{s:'♠',c:'black'},{s:'♥',c:'red'},{s:'♦',c:'red'},{s:'♣',c:'black'}];
+
+  var SYM = {
+    cherry:  {ch:'🍒', w:8, pay:20},
+    lemon:   {ch:'🍋', w:6, pay:25},
+    orange:  {ch:'🍊', w:5, pay:30},
+    grape:   {ch:'🍇', w:4, pay:40},
+    melon:   {ch:'🍉', w:2, pay:60},
+    bell:    {ch:'🔔', w:2, pay:90},
+    bar:     {ch:'BAR', w:1, pay:250, kind:'bar'},
+    seven:   {ch:'7', w:1, pay:500, kind:'seven'},
+    diamond: {ch:'💎', w:1, pay:1000, wild:true}
+  };
+  var ORDER = ['diamond','seven','bar','bell','melon','grape','orange','lemon','cherry'];
+  var NAMES = {cherry:'체리', lemon:'레몬', orange:'오렌지', grape:'포도', melon:'수박', bell:'종', bar:'BAR', seven:'세븐 7', diamond:'다이아 (와일드)'};
+  var LINES = [
+    {name:'가로 1', cells:[0,1,2]},
+    {name:'가로 2', cells:[3,4,5]},
+    {name:'가로 3', cells:[6,7,8]},
+    {name:'세로 1', cells:[0,3,6]},
+    {name:'세로 2', cells:[1,4,7]},
+    {name:'세로 3', cells:[2,5,8]},
+    {name:'대각 ↘', cells:[0,4,8]},
+    {name:'대각 ↗', cells:[2,4,6]}
+  ];
+  var LINE_COORDS = [
+    [8,50,292,50],[8,150,292,150],[8,250,292,250],
+    [50,8,50,292],[150,8,150,292],[250,8,250,292],
+    [14,14,286,286],[286,14,14,286]
+  ];
+
+  /* ================= helpers ================= */
+  function $(s, el){ return (el||document).querySelector(s); }
+  function $$(s, el){ return Array.prototype.slice.call((el||document).querySelectorAll(s)); }
+  function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+  function mod(n,m){ return ((n % m) + m) % m; }
+  function randInt(a,b){ return a + Math.floor(Math.random() * (b - a + 1)); }
+  function fmt(n){ try { return Number(n).toLocaleString('ko-KR'); } catch(e){ return String(n); } }
+  function vibrate(p){ try { if (navigator.vibrate) navigator.vibrate(p); } catch(e){} }
+
+  /* ================= persistence ================= */
+  function loadSaved(){
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (!raw) return null;
+      var d = JSON.parse(raw);
+      return (d && typeof d === 'object') ? d : null;
+    } catch(e){ return null; }
+  }
+  var saved = loadSaved();
+  function num(v, dflt){
+    return (typeof v === 'number' && isFinite(v)) ? Math.max(0, Math.floor(v)) : dflt;
+  }
+
+  var state = {
+    credit: saved ? num(saved.credit, 5000) : 5000,
+    maxCredit: saved ? num(saved.maxCredit, 5000) : 5000,
+    betIndex: (saved && BETS.indexOf(saved.betIndex) >= 0) ? saved.betIndex : 0,
+    spins: saved ? num(saved.spins, 0) : 0,
+    wins: saved ? num(saved.wins, 0) : 0,
+    wagered: saved ? num(saved.wagered, 0) : 0,
+    won: saved ? num(saved.won, 0) : 0,
+    bestWin: saved ? num(saved.bestWin, 0) : 0,
+    sound: saved ? saved.sound !== false : true,
+    phase: 'idle',       // idle | spin | pending | double
+    pending: 0,
+    lastGrid: null
+  };
+  state.maxCredit = Math.max(state.maxCredit, state.credit);
+
+  function save(){
+    try {
+      localStorage.setItem(KEY, JSON.stringify({
+        v:1, credit:state.credit, maxCredit:state.maxCredit, betIndex:state.betIndex,
+        spins:state.spins, wins:state.wins, wagered:state.wagered, won:state.won,
+        bestWin:state.bestWin, sound:state.sound
+      }));
+    } catch(e){}
+  }
+
+  /* ================= audio ================= */
+  var Sound = {
+    ctx:null, master:null, on:true, lastTick:0, noiseBuf:null,
+    init:function(){
+      if (this.ctx){ if (this.ctx.state === 'suspended'){ try{ this.ctx.resume(); }catch(e){} } return; }
+      try {
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        this.ctx = new AC();
+        this.master = this.ctx.createGain();
+        this.master.gain.value = 0.26;
+        this.master.connect(this.ctx.destination);
+        var n = Math.floor(this.ctx.sampleRate * 0.5);
+        var b = this.ctx.createBuffer(1, n, this.ctx.sampleRate);
+        var d = b.getChannelData(0);
+        for (var i=0;i<n;i++) d[i] = Math.random()*2 - 1;
+        this.noiseBuf = b;
+      } catch(e){ this.ctx = null; }
+    },
+    tone:function(f1,f2,dur,type,vol,delay){
+      if (!this.on || !this.ctx) return;
+      try {
+        var t = this.ctx.currentTime + (delay || 0);
+        var o = this.ctx.createOscillator();
+        var g = this.ctx.createGain();
+        o.type = type || 'square';
+        o.frequency.setValueAtTime(Math.max(30, f1), t);
+        if (f2 && f2 !== f1) o.frequency.exponentialRampToValueAtTime(Math.max(30,	f2), t + dur);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.linearRampToValueAtTime(vol || 0.2, t + 0.012);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.connect(g); g.connect(this.master);
+        o.start(t); o.stop(t + dur + 0.04);
+      } catch(e){}
+    },
+    noise:function(dur,vol,delay,hp){
+      if (!this.on || !this.ctx || !this.noiseBuf) return;
+      try {
+        var t = this.ctx.currentTime + (delay || 0);
+        var src = this.ctx.createBufferSource();
+        src.buffer = this.noiseBuf;
+        var f = this.ctx.createBiquadFilter();
+        f.type = 'highpass'; f.frequency.value = hp || 900;
+        var g = this.ctx.createGain();
+        g.gain.setValueAtTime(vol || 0.2, t);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        src.connect(f); f.connect(g); g.connect(this.master);
+        src.start(t); src.stop(t + dur + 0.03);
+      } catch(e){}
+    },
+    click:function(){ this.tone(760,520,0.05,'square',0.10); },
+    deny:function(){ this.tone(190,110,0.20,'sawtooth',0.14); },
+    tick:function(){
+      var now = (window.performance && performance.now) ? performance.now() : Date.now();
+      if (now - this.lastTick < 45) return;
+      this.lastTick = now;
+      this.tone(1500,1500,0.012,'square',0.045);
+    },
+    spin:function(){ this.tone(110,330,0.32,'sawtooth',0.11); this.noise(0.18,0.05,0,500); },
+    reelStop:function(){ this.noise(0.05,0.28,0,300); this.tone(190,70,0.16,'sine',0.32); },
+    coin:function(){ this.tone(1046,1046,0.07,'square',0.14); this.tone(1568,1568,0.12,'square',0.12,0.07); this.noise(0.08,0.1,0,1500); },
+    cash:function(){ this.tone(880,1320,0.12,'triangle',0.16); this.tone(1320,1760,0.14,'triangle',0.12,0.1); },
+    win:function(big){
+      var notes = big ? [523,659,784,1046,1318,1568,2093] : [523,659,784,1046];
+      for (var i=0;i<notes.length;i++) this.tone(notes[i],notes[i],0.14,'square',0.13,i*0.085);
+      if (big) this.noise(0.5,0.14,0.1,2000);
+    },
+    duelWin:function(){ var n=[659,880,1046,1318]; for (var i=0;i<n.length;i++) this.tone(n[i],n[i],0.1,'square',0.13,i*0.07); },
+    duelLose:function(){ this.tone(320,80,0.45,'sawtooth',0.17); this.tone(200,60,0.5,'square',0.09,0.06); },
+    push:function(){ this.tone(520,520,0.09,'triangle',0.15); this.tone(520,520,0.09,'triangle',0.15,0.14); },
+    flip:function(){ this.noise(0.035,0.16,0,1200); },
+    open:function(){ var n=[440,554,659]; for (var i=0;i<n.length;i++) this.tone(n[i],n[i],0.1,'triangle',0.12,i*0.06); }
+  };
+  Sound.on = state.sound;
+
+  /* ================= LED digits ================= */
+  var SEG_RECT = {a:[13,2,74,12], b:[85,6,13,68], c:[85,94,13,68], d:[13,151,74,12], e:[2,94,13,68], f:[2,6,13,68], g:[13,80,74,12]};
+  var SEG_ON = {0:'abcdef',1:'bc',2:'abged',3:'abgcd',4:'fgbc',5:'afgcd',6:'afgedc',7:'abc',8:'abcdefg',9:'abcdfg'};
+  var dgCache = {};
+  function digitSVG(ch){
+    if (dgCache[ch]) return dgCache[ch];
+    var on = SEG_ON[ch] || '';
+    var out = '<svg class="dg" viewBox="0 0 100 165" aria-hidden="true">';
+    for (var k in SEG_RECT){
+      if (!Object.prototype.hasOwnProperty.call(SEG_RECT,k)) continue;
+      var r = SEG_RECT[k];
+      out += '<rect class="sg' + (on.indexOf(k) >= 0 ? ' on' : '') + '" x="' + r[0] + '" y="' + r[1] + '" width="' + r[2] + '" height="' + r[3] + '" rx="4"/>';
+    }
+    out += '</svg>';
+    dgCache[ch] = out;
+    return out;
+  }
+  function padNum(n, digits){
+    n = Math.max(0, Math.floor(n || 0));
+    var s = String(n);
+    if (s.length > digits) s = s.slice(s.length - digits);
+    while (s.length < digits) s = '0' + s;
+    return s;
+  }
+  function setLED(el, text){
+    if (el.dataset.v === text) return;
+    el.dataset.v = text;
+    var html = '';
+    for (var i=0;i<text.length;i++) html += digitSVG(text[i]);
+    el.innerHTML = html;
+  }
+
+  var ledCredit = $('#ledCredit'), ledBet = $('#ledBet'), ledWin = $('#ledWin'), ledWinBox = $('#ledWinBox');
+  function updateLeds(){
+    setLED(ledCredit, padNum(state.credit, 6));
+    setLED(ledBet, padNum(BETS[state.betIndex], 3));
+    setLED(ledWin, padNum(state.pending, 5));
+    ledWinBox.classList.toggle('blink', state.pending > 0);
+  }
+
+  /* ================= reels ================= */
+  function buildStrip(){
+    var bag = [];
+    for (var k in SYM){
+      if (!Object.prototype.hasOwnProperty.call(SYM,k)) continue;
+      for (var i=0;i<SYM[k].w;i++) bag.push(k);
+    }
+    for (var j=bag.length-1;j>0;j--){
+      var r = Math.floor(Math.random() * (j+1));
+      var t = bag[j]; bag[j] = bag[r]; bag[r] = t;
+    }
+    return bag;
+  }
+  function symbolHTML(k){
+    var s = SYM[k];
+    if (!s) return '';
+    if (s.kind === 'bar') return '<span class="sym bar">BAR</span>';
+    if (s.kind === 'seven') return '<span class="sym seven">7</span>';
+    return '<span class="sym">' + s.ch + '</span>';
+  }
+
+  function Reel(idx, el){
+    this.idx = idx;
+    this.el = el;
+    this.stripEl = $('.strip', el);
+    this.strip = buildStrip();
+    this.tiles = [];
+    this.pos = 0;
+    this.to = 0;
+    this.mode = 'idle';
+    this.speed = 0;
+    this.t = 0;
+    this.from = 0;
+    this.dur = 0.3;
+    this.lastTick = -1;
+    this.buildDOM();
+  }
+  Reel.prototype.buildDOM = function(){
+    var frag = document.createDocumentFragment();
+    this.tiles = [];
+    for (var k=0;k<L*2;k++){
+      var tile = document.createElement('div');
+      tile.className = 'tile';
+      tile.dataset.idx = String(k);
+      var face = document.createElement('div');
+      face.className = 'face';
+      face.innerHTML = symbolHTML(this.strip[k % L]);
+      tile.appendChild(face);
+      frag.appendChild(tile);
+      this.tiles.push({el:tile, face:face});
+    }
+    this.stripEl.innerHTML = '';
+    this.stripEl.appendChild(frag);
+  };
+  Reel.prototype.setSymbol = function(idx, key){
+    if (!SYM[key]) return;
+    idx = mod(idx, L);
+    this.strip[idx] = key;
+    for (var k=0;k<2;k++){
+      var t = this.tiles[idx + k*L];
+      if (t) t.face.innerHTML = symbolHTML(key);
+    }
+  };
+  Reel.prototype.render = function(tileH){
+    var y = mod(this.pos, L) * tileH;
+    this.stripEl.style.transform = 'translate3d(0,' + (-y).toFixed(2) + 'px,0)';
+  };
+  Reel.prototype.clearHit = function(){
+    for (var i=0;i<this.tiles.length;i++) this.tiles[i].el.classList.remove('hit');
+  };
+  Reel.prototype.window = function(){
+    var base = (this.mode === 'idle') ? this.to : Math.round(this.pos);
+    var out = [];
+    for (var r=0;r<3;r++) out.push(this.strip[mod(base + r, L)]);
+    return out;
+  };
+
+  var gridEl = $('#grid');
+  var reels = $$('.reel').map(function(el, i){ return new Reel(i, el); });
+  var tileH = 100;
+
+  function layout(){
+    var h = gridEl.clientHeight / 3;
+    if (h > 4 && Math.abs(h - tileH) > 0.25){
+      tileH = h;
+      document.documentElement.style.setProperty('--tileh', h.toFixed(2) + 'px');
+      for (var i=0;i<reels.length;i++) reels[i].render(tileH);
+    }
+  }
+  if (window.ResizeObserver){
+    new ResizeObserver(function(){ layout(); }).observe(gridEl);
+  }
+  window.addEventListener('resize', layout);
+  window.addEventListener('orientationchange', function(){ setTimeout(layout, 120); });
+
+  /* ================= win lines overlay ================= */
+  var winsEl = $('#wins');
+  (function buildLines(){
+    var html = '';
+    for (var i=0;i<LINE_COORDS.length;i++){
+      var c = LINE_COORDS[i];
+      html += '<line class="wline" data-line="' + i + '" x1="' + c[0] + '" y1="' + c[1] + '" x2="' + c[2] + '" y2="' + c[3] + '"/>';
+    }
+    winsEl.innerHTML = html;
+  })();
+  var lampsEl = $('#lamps');
+  (function buildLamps(){
+    var html = '';
+    for (var i=0;i<8;i++) html += '<span class="lamp" data-l="' + i + '">' + (i+1) + '</span>';
+    lampsEl.innerHTML = html;
+  })();
+  var lampEls = $$('.lamp', lampsEl);
+
+  /* ================= evaluation ================= */
+  function getGrid(){
+    var grid = new Array(9);
+    for (var c=0;c<3;c++){
+      var w = reels[c].window();
+      for (var r=0;r<3;r++) grid[r*3 + c] = w[r];
+    }
+    return grid;
+  }
+  function lineWin(syms){
+    var non = [];
+    for (var i=0;i<syms.length;i++) if (syms[i] !== 'diamond') non.push(syms[i]);
+    if (non.length === 0) return {pay:1000, label:'💎💎💎 올체리 잭팟'};
+    var base = non[0];
+    for (var j=1;j<non.length;j++) if (non[j] !== base) return {pay:0, label:''};
+    var def = SYM[base];
+    if (!def) return {pay:0, label:''};
+    return {pay:def.pay, label:def.ch + '×3' + (non.length < 3 ? ' (💎)' : '')};
+  }
+  function evaluate(grid, lineBet){
+    var total = 0, lines = [], details = [], jackpot = false;
+    for (var i=0;i<LINES.length;i++){
+      var syms = LINES[i].cells.map(function(c){ return grid[c]; });
+      var res = lineWin(syms);
+      if (res.pay > 0){
+        var pay = Math.round(res.pay * lineBet);
+        total += pay;
+        lines.push(i);
+        details.push({line:i, pay:pay, label:res.label});
+        if (res.pay >= 1000) jackpot = true;
+      }
+    }
+    return {total:total, lines:lines, details:details, jackpot:jackpot};
+  }
+
+  function highlight(res){
+    gridEl.classList.add('haswin');
+    for (var i=0;i<reels.length;i++) reels[i].clearHit();
+    var wlines = $$('.wline', winsEl);
+    for (var w=0;w<wlines.length;w++){
+      wlines[w].classList.remove('on');
+      wlines[w].style.animation = 'none';
+    }
+    // force reflow so the draw animation restarts
+    void winsEl.getBoundingClientRect();
+    for (var k=0;k<res.lines.length;k++){
+      var li = res.lines[k];
+      if (wlines[li]){ wlines[li].style.animation = ''; wlines[li].classList.add('on'); }
+      lampEls[li].classList.add('on');
+    }
+    for (var d=0;d<res.lines.length;d++){
+      var cells = LINES[res.lines[d]].cells;
+      for (var ci=0;ci<cells.length;ci++){
+        var cell = cells[ci];
+        var col = cell % 3, row = Math.floor(cell / 3);
+        var reel = reels[col];
+        var idx = mod(reel.to + row, L);
+        for (var cp=0;cp<2;cp++){
+          var t = reel.tiles[idx + cp*L];
+          if (t) t.el.classList.add('hit');
+        }
+      }
+    }
+  }
+  function clearWinUI(){
+    gridEl.classList.remove('haswin');
+    for (var i=0;i<reels.length;i++) reels[i].clearHit();
+    var wlines = $$('.wline', winsEl);
+    for (var w=0;w<wlines.length;w++){ wlines[w].classList.remove('on'); wlines[w].style.animation = 'none'; }
+    for (var l=0;l<lampEls.length;l++) lampEls[l].classList.remove('on');
+    state.pending = 0;
+    updateLeds();
+  }
+
+  /* ================= message ================= */
+  var ticker = $('#ticker'), tickerText = $('#tickerText');
+  function setMsg(text, kind){
+    tickerText.textContent = text;
+    ticker.classList.remove('alert','hit');
+    if (kind === 'alert'){ void ticker.offsetWidth; ticker.classList.add('alert'); }
+    if (kind === 'hit'){ void ticker.offsetWidth; ticker.classList.add('hit'); }
+  }
+
+  /* ================= spin / stop ================= */
+  var spinBtn = $('#spinBtn');
+  var stopButtons = [ $('#stop0'), $('#stop1'), $('#stop2') ];
+  var stopRow = $('#stopRow'), winRow = $('#winRow'), keystack = $('.keystack');
+  var takeBtn = $('#takeBtn'), doubleBtn = $('#doubleBtn');
+  var betMinus = $('#betMinus'), betPlus = $('#betPlus'), maxBet = $('#maxBet');
+  var coinBtn = $('#coinBtn');
+  var stopTimers = [null,null,null];
+  var forceNext = null;
+  var duel = {stake:0, streak:0, locked:false, deck:null, card:null};
+
+  function clearTimers(){
+    for (var i=0;i<3;i++){
+      if (stopTimers[i] !== null){ clearTimeout(stopTimers[i]); stopTimers[i] = null; }
+    }
+  }
+
+  function sync(){
+    var phase = state.phase;
+    spinBtn.disabled = (phase === 'pending' || phase === 'double');
+    spinBtn.textContent = (phase === 'spin') ? 'ALL STOP' : 'START';
+    spinBtn.classList.toggle('allstop', phase === 'spin');
+    for (var i=0;i<3;i++){
+      var can = (phase === 'spin' && reels[i].mode === 'spin');
+      stopButtons[i].disabled = !can;
+      stopButtons[i].classList.toggle('ready', can);
+    }
+    var canBet = (phase === 'idle');
+    betMinus.disabled = !canBet;
+    betPlus.disabled = !canBet;
+    maxBet.disabled = !canBet;
+    stopRow.style.visibility = (phase === 'spin' || phase === 'idle') ? 'visible' : 'hidden';
+    winRow.style.visibility = (phase === 'pending') ? 'visible' : 'hidden';
+    keystack.classList.toggle('collapsed', phase === 'double');
+    takeBtn.disabled = (phase !== 'pending');
+    doubleBtn.disabled = (phase !== 'pending');
+    updateLeds();
+  }
+
+  function startSpin(){
+    if (state.phase !== 'idle') return;
+    Sound.init();
+    var bet = BETS[state.betIndex];
+    if (state.credit < bet){
+      setMsg('크레딧 부족! 코인을 넣어라', 'alert');
+      Sound.deny();
+      coinBtn.classList.remove('pulse'); void coinBtn.offsetWidth; coinBtn.classList.add('pulse');
+      return;
+    }
+    clearWinUI();
+    clearTimers();
+    state.credit -= bet;
+    state.wagered += bet;
+    state.spins++;
+    state.phase = 'spin';
+    state.lastGrid = null;
+
+    var force = forceNext; forceNext = null;
+    for (var i=0;i<3;i++){
+      var r = reels[i];
+      var start = randInt(0, L-1);
+      r.pos = start;
+      r.lastTick = start;
+      r.to = start + L + 2 + randInt(0, L-3);
+      if (force && force[i]){
+        for (var k=0;k<3;k++) r.setSymbol(r.to + k, force[i][k]);
+      }
+      r.mode = 'spin';
+      r.speed = 16 + i * 1.6;
+      r.t = 0;
+      r.el.classList.add('spinning');
+      r.render(tileH);
+    }
+    updateLeds();
+    save();
+    sync();
+    setMsg('스핀! STOP 1·2·3으로 직접 멈춰라');
+    Sound.spin();
+    for (var s=0;s<3;s++){
+      (function(idx){
+        stopTimers[idx] = setTimeout(function(){ stopReel(idx); }, 1200 + idx * 800);
+      })(s);
+    }
+  }
+
+  function stopReel(i){
+    if (state.phase !== 'spin') return;
+    var r = reels[i];
+    if (r.mode !== 'spin') return;
+    if (stopTimers[i] !== null){ clearTimeout(stopTimers[i]); stopTimers[i] = null; }
+    while (r.to < r.pos + 2) r.to += L;
+    r.from = r.pos;
+    r.t = 0;
+    r.dur = clamp(0.24 + (r.to - r.pos) * 0.008, 0.24, 0.5);
+    r.mode = 'stop';
+    Sound.click();
+    sync();
+  }
+
+  function stopAll(){
+    if (state.phase !== 'spin') return;
+    clearTimers();
+    for (var i=0;i<3;i++) if (reels[i].mode === 'spin') stopReel(i);
+  }
+
+  function onReelStop(r){
+    r.el.classList.remove('spinning');
+    Sound.reelStop();
+    vibrate(10);
+    if (reels.every(function(x){ return x.mode === 'idle'; })) finishSpin();
+  }
+
+  function finishSpin(){
+    if (state.phase !== 'spin') return;
+    var grid = getGrid();
+    state.lastGrid = grid;
+    var lineBet = BETS[state.betIndex] / 8;
+    var res = evaluate(grid, lineBet);
+    state.phase = 'idle';
+
+    if (res.total > 0){
+      state.pending = res.total;
+      state.wins++;
+      state.bestWin = Math.max(state.bestWin, res.total);
+      state.phase = 'pending';
+      highlight(res);
+      var bits = [];
+      for (var i=0;i<res.details.length;i++){
+        bits.push('L' + (res.details[i].line+1) + ' ' + res.details[i].label);
+      }
+      setMsg('당첨 ' + fmt(res.total) + '점! (' + bits.join(' · ') + ')', 'hit');
+      Sound.win(res.jackpot);
+      vibrate([20,40,30]);
+      if (res.lines.length > 1) setMsg('🎉 ' + res.lines.length + '라인 당첨 · ' + fmt(res.total) + '점! TAKE 또는 DOUBLE', 'hit');
+      if (res.jackpot) setMsg('💎 올체리 잭팟! ' + fmt(res.total) + '점! TAKE 또는 DOUBLE', 'hit');
+    } else {
+      setMsg('아쉽다… 다시 START를 눌러라');
+    }
+    updateLeds();
+    save();
+    sync();
+  }
+
+  function settle(amount){
+    if (amount <= 0) return;
+    state.credit += amount;
+    state.won += amount;
+    state.maxCredit = Math.max(state.maxCredit, state.credit);
+    save();
+  }
+
+  function doTake(){
+    if (state.phase !== 'pending' || state.pending <= 0) return;
+    var amount = state.pending;
+    settle(amount);
+    state.phase = 'idle';
+    clearWinUI();
+    updateLeds();
+    sync();
+    setMsg('+' + fmt(amount) + '점 획득! 다음 스핀?', 'hit');
+    Sound.cash();
+    vibrate(15);
+  }
+
+  /* ================= double up ================= */
+  var duelEl = $('#duel'), duelAmt = $('#duelAmt'), duelMsg = $('#duelMsg'), duelStreak = $('#duelStreak');
+  var duelCard = $('#duelCard'), duelFront = $('#duelFront');
+  var btnHigh = $('#btnHigh'), btnLow = $('#btnLow');
+  var btnDuelTake = $('#btnDuelTake'), btnDuelHalf = $('#btnDuelHalf');
+  var forcedCard = null;
+
+  function fullDeck(){
+    var d = [];
+    for (var r=0;r<RANKS.length;r++){
+      for (var s=0;s<SUITS.length;s++) d.push({rank:RANKS[r], suit:SUITS[s]});
+    }
+    for (var i=d.length-1;i>0;i--){
+      var j = Math.floor(Math.random()*(i+1));
+      var t = d[i]; d[i] = d[j]; d[j] = t;
+    }
+    return d;
+  }
+  function drawCard(){
+    if (forcedCard){ var fc = forcedCard; forcedCard = null; return fc; }
+    if (!duel.deck || duel.deck.length === 0) duel.deck = fullDeck();
+    return duel.deck.pop();
+  }
+  function setDuelButtons(on){
+    btnHigh.disabled = !on;
+    btnLow.disabled = !on;
+    btnDuelTake.disabled = !on;
+    btnDuelHalf.disabled = !on;
+  }
+  function setDuelMsg(text, kind){
+    duelMsg.textContent = text;
+    duelMsg.classList.remove('bad','good');
+    if (kind) duelMsg.classList.add(kind);
+  }
+  function renderStreak(){
+    var html = '';
+    for (var i=0;i<5;i++) html += '<span class="' + (i < duel.streak ? 'on' : '') + '"></span>';
+    duelStreak.innerHTML = html;
+  }
+  function renderDuelMsgDefault(){
+    setDuelMsg('HIGH(8~K) / LOW(A~6) · 7은 PUSH(무승부)');
+  }
+  function updateDuelAmount(){
+    duelAmt.innerHTML = fmt(duel.stake) + '<small>점</small>';
+  }
+  function resetCard(){
+    duelCard.classList.remove('flipped');
+    setTimeout(function(){
+      if (!duelCard.classList.contains('flipped')) duelFront.innerHTML = '';
+    }, 480);
+  }
+  function showCard(card){
+    var suit = SUITS.indexOf(card.suit) >= 0 ? card.suit : SUITS[0];
+    duelFront.innerHTML = '<span class="rank">' + card.rank + '</span><span class="suit ' + suit.c + '">' + suit.s + '</span>';
+    duelCard.classList.add('flipped');
+  }
+
+  function openDouble(){
+    if (state.phase !== 'pending' || state.pending <= 0) return;
+    Sound.init();
+    state.phase = 'double';
+    duel.stake = state.pending;
+    duel.streak = 0;
+    duel.locked = false;
+    duel.deck = duel.deck && duel.deck.length ? duel.deck : fullDeck();
+    clearWinUI();
+    state.pending = duel.stake;
+    duelEl.hidden = false;
+    resetCard();
+    renderStreak();
+    updateDuelAmount();
+    renderDuelMsgDefault();
+    setDuelButtons(true);
+    updateLeds();
+    sync();
+    setMsg('더블업! HIGH(8~K) / LOW(A~6) · 7은 PUSH');
+    Sound.open();
+  }
+
+  function chooseHL(hl){
+    if (state.phase !== 'double' || duel.locked) return;
+    duel.locked = true;
+    setDuelButtons(false);
+    var card = drawCard();
+    duel.card = card;
+    showCard(card);
+    Sound.flip();
+    setDuelMsg('카드 공개…');
+    setTimeout(function(){ resolveHL(hl, card); }, 720);
+  }
+
+  function resolveHL(hl, card){
+    if (state.phase !== 'double') return;
+    var v = RANK_VAL[card.rank] || 0;
+    if (v === 7){
+      setDuelMsg('7 PUSH! 무승부 — 잃지 않는다. 다시 선택', 'good');
+      setMsg('7 PUSH — 무승부 · 다시 HIGH / LOW');
+      Sound.push();
+      setTimeout(function(){
+        if (state.phase !== 'double') return;
+        resetCard();
+        duel.locked = false;
+        setDuelButtons(true);
+        renderDuelMsgDefault();
+      }, 1000);
+      return;
+    }
+    var win = (hl === 'high') ? (v >= 8) : (v <= 6);
+    if (win){
+      duel.stake *= 2;
+      duel.streak++;
+      state.pending = duel.stake;
+      renderStreak();
+      updateDuelAmount();
+      updateLeds();
+      save();
+      Sound.duelWin();
+      vibrate(20);
+      if (duel.streak >= 5){
+        setDuelMsg('MAX 5연승! ' + fmt(duel.stake) + '점 자동 정산', 'good');
+        setMsg('MAX 5연승! ' + fmt(duel.stake) + '점 자동 정산', 'hit');
+        Sound.win(true);
+        setTimeout(function(){ closeDuel(true); }, 1400);
+      } else {
+        setDuelMsg('정답! ×2 → ' + fmt(duel.stake) + '점', 'good');
+        setMsg('더블업 성공 ×2 · ' + fmt(duel.stake) + '점 · 계속 또는 TAKE', 'hit');
+        setTimeout(function(){
+          if (state.phase !== 'double') return;
+          resetCard();
+          duel.locked = false;
+          setDuelButtons(true);
+          setDuelMsg('한 번 더? HIGH 또는 LOW');
+        }, 1000);
+      }
+    } else {
+      duel.stake = 0;
+      state.pending = 0;
+      updateDuelAmount();
+      updateLeds();
+      save();
+      setDuelMsg('틀렸다… 이번 당첨금 0점', 'bad');
+      setMsg('더블업 실패 — 이번 당첨금 0점', 'alert');
+      Sound.duelLose();
+      vibrate([40,60,40]);
+      setTimeout(function(){ closeDuel(false); }, 1700);
+    }
+  }
+
+  function duelHalf(){
+    if (state.phase !== 'double' || duel.locked || duel.stake < 2) return;
+    var half = Math.floor(duel.stake / 2);
+    if (half < 1) return;
+    settle(half);
+    duel.stake -= half;
+    state.pending = duel.stake;
+    updateDuelAmount();
+    updateLeds();
+    save();
+    Sound.cash();
+    if (duel.stake < 1){
+      setDuelMsg('절반 ' + fmt(half) + '점 저장 완료', 'good');
+      setTimeout(function(){ closeDuel(false); }, 900);
+    } else {
+      setDuelMsg('절반 ' + fmt(half) + '점 저장 · 남은 ' + fmt(duel.stake) + '점으로 계속', 'good');
+    }
+  }
+
+  function closeDuel(withTake){
+    if (state.phase !== 'double') return;
+    var taken = 0;
+    if (withTake && duel.stake > 0){ taken = duel.stake; settle(taken); }
+    duel.stake = 0;
+    state.pending = 0;
+    state.phase = 'idle';
+    duelEl.hidden = true;
+    clearWinUI();
+    updateLeds();
+    sync();
+    save();
+    if (taken > 0) setMsg('더블업 정산 +' + fmt(taken) + '점!', 'hit');
+    else setMsg('더블업 종료 — 다시 START');
+  }
+
+  /* ================= paytable ================= */
+  var payModal = $('#payModal');
+  var ptableEl = $('#ptable'), lines8El = $('#lines8'), statsEl = $('#stats');
+
+  function renderPaytable(){
+    var lineBet = BETS[state.betIndex] / 8;
+    var html = '';
+    for (var i=0;i<ORDER.length;i++){
+      var k = ORDER[i], s = SYM[k];
+      var name = NAMES[k] || k;
+      var mult = (k === 'diamond') ? '×3 올체리' : '×3';
+      html += '<div class="prow' + (k === 'diamond' ? ' jack' : '') + '">' +
+        '<span class="symbox">' + symbolHTML(k) + '</span>' +
+        '<span class="pname">' + name + ' <span style="color:#7f8998;font-weight:600">' + mult + '</span></span>' +
+        '<span class="pmult">' + fmt(s.pay) + '배</span>' +
+        '<span class="pcr">' + fmt(Math.round(s.pay * lineBet)) + '점</span>' +
+      '</div>';
+    }
+    html += '<div class="prow"><span class="symbox">💎</span><span class="pname">와일드 <span style="color:#7f8998;font-weight:600">다른 심볼 대신</span></span><span class="pmult">대체</span><span class="pcr">3개 완성</span></div>';
+    ptableEl.innerHTML = html;
+
+    var lh = '';
+    for (var n=0;n<LINES.length;n++){
+      var cells = '';
+      for (var c=0;c<9;c++) cells += '<i class="' + (LINES[n].cells.indexOf(c) >= 0 ? 'on' : '') + '"></i>';
+      lh += '<div class="l8"><div class="l8g">' + cells + '</div><b>L' + (n+1) + '</b><span>' + LINES[n].name + '</span></div>';
+    }
+    lines8El.innerHTML = lh;
+
+    statsEl.innerHTML =
+      '<span>최고 크레딧 <b>' + fmt(state.maxCredit) + '</b></span>' +
+      '<span>총 스핀 <b>' + fmt(state.spins) + '</b></span>' +
+      '<span>당첨 스핀 <b>' + fmt(state.wins) + '</b></span>' +
+      '<span>총 베팅 <b>' + fmt(state.wagered) + '</b></span>' +
+      '<span>총 당첨 <b>' + fmt(state.won) + '</b></span>' +
+      '<span>최고 당첨 <b>' + fmt(state.bestWin) + '</b></span>';
+  }
+  function openPayTable(){
+    Sound.init();
+    renderPaytable();
+    payModal.hidden = false;
+    Sound.click();
+  }
+  function closePayTable(){
+    payModal.hidden = true;
+    Sound.click();
+  }
+
+  /* ================= buttons ================= */
+  function changeBet(dir){
+    if (state.phase !== 'idle') return;
+    state.betIndex = clamp(state.betIndex + dir, 0, BETS.length - 1);
+    updateLeds();
+    save();
+    Sound.click();
+    setMsg('BET ' + BETS[state.betIndex] + '점 · 라인당 ' + (BETS[state.betIndex] / 8) + '점');
+  }
+  function coinIn(){
+    Sound.init();
+    state.credit += 1000;
+    state.maxCredit = Math.max(state.maxCredit, state.credit);
+    updateLeds();
+    save();
+    Sound.coin();
+    setMsg('+1,000점 충전! CREDIT ' + fmt(state.credit));
+    coinBtn.classList.remove('pulse'); void coinBtn.offsetWidth; coinBtn.classList.add('pulse');
+  }
+  function toggleSound(){
+    state.sound = !state.sound;
+    Sound.on = state.sound;
+    if (state.sound){ Sound.init(); Sound.click(); }
+    var b = $('#soundBtn');
+    b.setAttribute('aria-pressed', state.sound ? 'true' : 'false');
+    b.textContent = state.sound ? '🔊' : '🔇';
+    save();
+  }
+
+  spinBtn.addEventListener('click', function(){
+    if (state.phase === 'spin') stopAll();
+    else if (state.phase === 'idle') startSpin();
+  });
+  stopButtons.forEach(function(b, i){ b.addEventListener('click', function(){ stopReel(i); }); });
+  takeBtn.addEventListener('click', doTake);
+  doubleBtn.addEventListener('click', openDouble);
+  betMinus.addEventListener('click', function(){ changeBet(-1); });
+  betPlus.addEventListener('click', function(){ changeBet(1); });
+  maxBet.addEventListener('click', function(){
+    if (state.phase !== 'idle') return;
+    state.betIndex = BETS.length - 1;
+    updateLeds(); save(); Sound.click();
+    setMsg('MAX BET ' + BETS[state.betIndex] + '점');
+  });
+  coinBtn.addEventListener('click', coinIn);
+  $('#payBtn').addEventListener('click', openPayTable);
+  $('#payClose').addEventListener('click', closePayTable);
+  payModal.addEventListener('click', function(e){ if (e.target === payModal) closePayTable(); });
+  $('#soundBtn').addEventListener('click', toggleSound);
+  btnHigh.addEventListener('click', function(){ chooseHL('high'); });
+  btnLow.addEventListener('click', function(){ chooseHL('low'); });
+  btnDuelTake.addEventListener('click', function(){ if (state.phase === 'double' && !duel.locked) closeDuel(true); });
+  btnDuelHalf.addEventListener('click', duelHalf);
+
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && !payModal.hidden){ closePayTable(); return; }
+    if (e.code === 'Space' || e.key === 'Enter'){
+      if (payModal.hidden === false) return;
+      e.preventDefault();
+      if (state.phase === 'spin') stopAll();
+      else if (state.phase === 'idle') startSpin();
+      else if (state.phase === 'pending') doTake();
+      return;
+    }
+    if (state.phase === 'spin'){
+      if (e.key === '1') stopReel(0);
+      if (e.key === '2') stopReel(1);
+      if (e.key === '3') stopReel(2);
+    } else if (state.phase === 'double'){
+      if (e.key === 'ArrowUp' || e.key === 'h' || e.key === 'H') chooseHL('high');
+      if (e.key === 'ArrowDown' || e.key === 'l' || e.key === 'L') chooseHL('low');
+    }
+  });
+
+  ['pointerdown','touchstart'].forEach(function(ev){
+    document.addEventListener(ev, function(){ Sound.init(); }, {passive:true});
+  });
+
+  /* ================= loop ================= */
+  var lastT = 0;
+  function loop(t){
+    var dt = lastT ? Math.min(0.05, (t - lastT) / 1000) : 0;
+    lastT = t;
+    var tick = false;
+    for (var i=0;i<reels.length;i++){
+      var r = reels[i];
+      if (r.mode === 'spin'){
+        r.pos += r.speed * dt;
+        var f = Math.floor(r.pos);
+        if (f !== r.lastTick){ r.lastTick = f; tick = true; }
+      } else if (r.mode === 'stop'){
+        r.t += dt;
+        var k = clamp(r.t / r.dur, 0, 1);
+        var e = 1 - Math.pow(1 - k, 3);
+        r.pos = r.from + (r.to - r.from) * e;
+        if (k >= 1){
+          r.pos = r.to;
+          r.mode = 'idle';
+          onReelStop(r);
+        }
+      }
+      r.render(tileH);
+    }
+    if (tick) Sound.tick();
+    requestAnimationFrame(loop);
+  }
+
+  /* ================= boot ================= */
+  function boot(){
+    updateLeds();
+    for (var i=0;i<reels.length;i++){
+      reels[i].pos = randInt(0, L-1);
+      reels[i].to = reels[i].pos;
+      reels[i].render(tileH);
+    }
+    layout();
+    setTimeout(layout, 60);
+    if (window.requestAnimationFrame) requestAnimationFrame(loop);
+    sync();
+    var b = $('#soundBtn');
+    b.setAttribute('aria-pressed', state.sound ? 'true' : 'false');
+    b.textContent = state.sound ? '🔊' : '🔇';
+    if (state.credit <= 0) setMsg('크레딧 0 — 코인 버튼으로 충전하세요');
+    save();
+  }
+  boot();
+
+  /* ================= test / debug hooks ================= */
+  window.__cherry = {
+    version: '1.0',
+    state: function(){
+      return {
+        phase: state.phase, credit: state.credit, maxCredit: state.maxCredit,
+        bet: BETS[state.betIndex], betIndex: state.betIndex, pending: state.pending,
+        spins: state.spins, wins: state.wins, wagered: state.wagered, won: state.won,
+        bestWin: state.bestWin, sound: state.sound, grid: state.lastGrid,
+        spinning: reels.some(function(r){ return r.mode !== 'idle'; }),
+        reels: reels.map(function(r){ return {mode:r.mode, pos:r.pos, to:r.to}; }),
+        duel: {open: !duelEl.hidden, stake: duel.stake, streak: duel.streak, locked: duel.locked, card: duel.card},
+        tileH: tileH
+      };
+    },
+    forceGrid: function(g){ forceNext = g; },
+    forceCard: function(rank, suit){ forcedCard = {rank: String(rank), suit: SUITS[0]}; if (suit) { for (var i=0;i<SUITS.length;i++) if (SUITS[i].s === suit) forcedCard.suit = SUITS[i]; } },
+    spin: startSpin,
+    stop: function(i){ stopReel(i); },
+    allStop: stopAll,
+    take: doTake,
+    double: openDouble,
+    choose: chooseHL,
+    half: duelHalf,
+    openPay: openPayTable,
+    closePay: closePayTable,
+    toggleSound: toggleSound,
+    setCredit: function(n){ state.credit = Math.max(0, Math.floor(n)); state.maxCredit = Math.max(state.maxCredit, state.credit); updateLeds(); save(); },
+    setBetIndex: function(i){ state.betIndex = clamp(i|0, 0, BETS.length-1); updateLeds(); save(); },
+    reset: function(){ try { localStorage.removeItem(KEY); } catch(e){} },
+    symbolHTML: symbolHTML
+  };
+})();
+</script>
+</body>
+</html>
