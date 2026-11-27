@@ -195,6 +195,20 @@ input{font:inherit}
 .pin-mini .keypad button{height:54px;font-size:21px;border-radius:14px}
 .doc-note{font-size:11.5px;color:#7c8a9e;line-height:1.6;background:#101824;border:1px solid #1e2838;border-radius:12px;padding:11px}
 .danger-note{font-size:11.5px;color:#c98b8f;line-height:1.55}
+/* 짧은 화면(가로 회전 등): 키패드·계산기 키를 줄여 잘리지 않게 */
+@media (max-height: 520px){
+  .pad-wrap{justify-content:flex-start;overflow-y:auto;gap:8px;padding-top:calc(8px + var(--sat))}
+  .pad-title{font-size:13px}
+  .keypad{gap:7px}
+  .keypad button{height:44px;font-size:19px;border-radius:12px}
+  .pad-foot{min-height:18px}
+  .notice{display:none}
+  .calc-keys{gap:6px}
+  .calc-keys button{height:42px;font-size:19px;border-radius:11px}
+  .calc-out{font-size:30px}
+  .calc-expr{font-size:13px}
+  .calc-screen{padding:6px 8px}
+}
 #toast{position:fixed;left:50%;bottom:calc(86px + var(--sab));transform:translate(-50%,14px);z-index:120;
   background:rgba(26,34,48,.97);border:1px solid #33405a;color:#eaf0f8;font-size:13px;padding:10px 16px;
   border-radius:12px;opacity:0;pointer-events:none;transition:.2s;max-width:88vw;text-align:center}
