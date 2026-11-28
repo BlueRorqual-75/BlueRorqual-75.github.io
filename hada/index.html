@@ -833,6 +833,10 @@
     currentId: null
   };
 
+  /* 마지막으로 화면에 그린 '오늘' 날짜 (자정 전환 감시) */
+  var lastRenderedDay = todayKey();
+  var midnightTimer = null;
+
   /* ---------------- helpers ---------------- */
   function $(id) { return document.getElementById(id); }
   function pad2(n) { return (n < 10 ? '0' : '') + n; }
@@ -1536,6 +1540,49 @@
     }
   }
 
+  /* ---------------- day rollover (자정 자동 초기화) ---------------- */
+  function msUntilNextMidnight() {
+    var now = new Date();
+    var next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+    return next.getTime() - now.getTime();
+  }
+
+  /* 날짜가 바뀌었으면 지금 화면을 즉시 다시 그린다. 바뀌었으면 true. */
+  function checkDayRollover() {
+    var day = todayKey();
+    if (day === lastRenderedDay) { return false; }
+    var prevDay = lastRenderedDay;
+    lastRenderedDay = day;
+
+    var onDetail = !$('detailView').hidden;
+    if (onDetail && ui.date === prevDay) {
+      /* 이전 '오늘'을 보고 있었다면 새 '오늘'로 따라 이동 */
+      ui.date = day;
+      var loc = currentLoc();
+      if (loc) {
+        var h = '#/loc/' + encodeURIComponent(loc.id);
+        if (location.hash !== h) {
+          if (history.replaceState) { history.replaceState(null, '', h); }
+          else { location.hash = h; }
+        }
+      }
+    }
+    if (onDetail) { renderDetail(); } else { renderHome(true); }
+    return true;
+  }
+
+  /* 자정 정각에 한 번 깨서 확인하고, 다음 자정으로 다시 예약한다. */
+  function scheduleMidnightCheck() {
+    if (midnightTimer) { clearTimeout(midnightTimer); }
+    var wait = msUntilNextMidnight() + 100;
+    if (wait < 1000) { wait = 1000; }
+    midnightTimer = setTimeout(function () {
+      midnightTimer = null;
+      checkDayRollover();
+      scheduleMidnightCheck();
+    }, wait);
+  }
+
   /* ---------------- routing ---------------- */
   function showHome() {
     $('homeView').hidden = false;
@@ -2012,6 +2059,15 @@
       if (!$('editorSheet').hidden) { closeEditor(); }
       else if (!$('backupSheet').hidden) { closeBackup(); }
     });
+
+    /* 앱을 켜 둔 채 자정을 넘기거나 백그라운드에서 다음 날 돌아올 때 */
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) { checkDayRollover(); }
+    });
+    window.addEventListener('focus', function () { checkDayRollover(); });
+    window.addEventListener('pageshow', function () { checkDayRollover(); });
+    setInterval(function () { checkDayRollover(); }, 30000);
+    scheduleMidnightCheck();
 
     window.addEventListener('storage', function (ev) {
       if (ev.key !== STORAGE_KEY) { return; }
