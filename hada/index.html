@@ -85,8 +85,18 @@
   .sync-state.is-loading .dot{background:var(--blue);animation:syncPulse 1s ease-in-out infinite}
   .sync-state.is-error{color:var(--amber)}
   .sync-state.is-error .dot{background:var(--amber)}
+  /* 차량일지 바로가기(새 탭) — HADA 시설 카운트 대상 아님, 상단 바로가기 전용 */
+  .truck-btn{
+    margin-left:auto;flex:0 0 auto;display:inline-flex;align-items:center;gap:4px;
+    min-height:34px;padding:0 11px;border-radius:999px;
+    border:1px solid var(--line);background:#fff;color:var(--ink2);
+    font-size:12.5px;font-weight:800;white-space:nowrap;text-decoration:none;
+    box-shadow:var(--shadow);
+  }
+  .truck-btn:active{transform:scale(.97)}
+  .truck-btn .ico{flex:0 0 auto;display:inline-block;font-size:13px;line-height:1}
   .sync-btn{
-    margin-left:auto;flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;
+    flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;
     min-height:34px;padding:0 13px;border-radius:999px;
     border:1px solid var(--mint-line);background:var(--mint-soft);color:var(--mint-deep);
     font-size:12.5px;font-weight:800;white-space:nowrap;box-shadow:var(--shadow);
@@ -418,6 +428,7 @@
       <p id="summaryText" class="summary">불러오는 중…</p>
       <div class="syncbar">
         <span id="syncState" class="sync-state" role="status" aria-live="polite"><span class="dot" aria-hidden="true"></span><span id="syncText">실시간 연동</span></span>
+        <a id="truckLink" class="truck-btn" href="https://jejumenual.pythonanywhere.com/truck" target="_blank" rel="noopener noreferrer" aria-label="차량일지 새 탭으로 열기"><span class="ico" aria-hidden="true">🚚</span><span>차량일지</span></a>
         <button id="syncBtn" class="sync-btn" type="button" aria-label="하다 실제 점검 횟수 새로고침"><span class="ico" aria-hidden="true">↻</span><span>동기화</span></button>
       </div>
       <div class="filters">
