@@ -159,14 +159,12 @@
   .steps-lg{gap:6px;max-width:290px;margin:11px auto 0}
   .steps-lg .step{height:12px}
   .loc-actions{display:flex;gap:8px;padding:0 15px 14px}
-  .btn-check,.btn-link{
+  .btn-link{
     flex:1 1 0;min-height:40px;border-radius:12px;font-size:13.5px;font-weight:800;
     display:flex;align-items:center;justify-content:center;gap:5px;text-decoration:none;
+    background:var(--mint);color:#fff;box-shadow:0 3px 10px rgba(0,181,120,.22);
   }
-  .btn-check{background:var(--mint);color:#fff;box-shadow:0 3px 10px rgba(0,181,120,.22)}
-  .btn-check:active{background:var(--mint-deep)}
-  .btn-link{background:#fff;border:1px solid var(--line);color:var(--ink2)}
-  .btn-link:active{background:#F3F7F5}
+  .btn-link:active{background:var(--mint-deep)}
   .empty{
     background:#fff;border:1px dashed var(--line);border-radius:18px;
     padding:28px 18px;text-align:center;color:var(--muted);font-size:13.5px;font-weight:600;
@@ -1214,17 +1212,10 @@
     main.appendChild(row);
     card.appendChild(main);
 
-    var actions = document.createElement('div');
-    actions.className = 'loc-actions';
-
-    var cbtn = document.createElement('button');
-    cbtn.type = 'button';
-    cbtn.className = 'btn-check';
-    cbtn.setAttribute('data-act', 'check');
-    cbtn.textContent = '✓ 점검하기';
-    actions.appendChild(cbtn);
-
     if (loc.url) {
+      var actions = document.createElement('div');
+      actions.className = 'loc-actions';
+
       var alink = document.createElement('a');
       alink.className = 'btn-link';
       alink.href = loc.url;
@@ -1233,8 +1224,8 @@
       alink.setAttribute('data-act', 'open');
       alink.textContent = '🔗 하다 열기';
       actions.appendChild(alink);
+      card.appendChild(actions);
     }
-    card.appendChild(actions);
     return card;
   }
 
@@ -1937,17 +1928,18 @@
       if (!card) { return; }
       var id = card.getAttribute('data-id');
       var act = t.getAttribute ? t.getAttribute('data-act') : null;
-      if (act === 'check') {
-        ev.preventDefault();
-        ev.stopPropagation();
-        var loc = findLocation(id);
-        if (!loc) { return; }
-        addCheck(loc);
-        renderHome(true);
-        toast('점검 기록 완료 · ' + fmtClock(Date.now()));
+      if (act === 'open') {
+        /* 하다 열기: 새 탭으로 여는 동시에 오늘 점검 1회 자동 기록 */
+        var openLoc = findLocation(id);
+        if (openLoc) {
+          setTimeout(function () {
+            addCheck(openLoc);
+            renderHome(true);
+            toast('하다 열기 · 점검 1회 기록');
+          }, 0);
+        }
         return;
       }
-      if (act === 'open') { return; }
       goDetail(id, null);
     });
 
@@ -1962,6 +1954,17 @@
     });
 
     $('dBack').addEventListener('click', function () { location.hash = '#/'; });
+    $('dOpenLink').addEventListener('click', function () {
+      /* 상세의 하다 원본 열기: 새 탭으로 열고 오늘 점검 1회 자동 기록 */
+      var loc = currentLoc();
+      if (!loc) { return; }
+      setTimeout(function () {
+        addCheck(loc);
+        if (ui.date !== todayKey()) { ui.date = todayKey(); goDetail(loc.id, null); }
+        else { renderDetail(); }
+        toast('하다 열기 · 점검 1회 기록');
+      }, 0);
+    });
     $('dEdit').addEventListener('click', function () {
       if (ui.currentId) { openEditor(ui.currentId); }
     });
