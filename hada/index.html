@@ -75,7 +75,9 @@
   .chip{
     flex:0 0 auto;border:1px solid var(--line);background:#fff;color:var(--ink2);
     border-radius:999px;padding:7px 12px;font-size:12.5px;font-weight:700;white-space:nowrap;
+    display:inline-flex;align-items:center;gap:5px;
   }
+  .chip-count{font-size:11px;font-weight:800;opacity:.55}
   .chip[aria-pressed="true"]{background:var(--mint);border-color:var(--mint);color:#fff}
   .search{
     width:100%;border:1px solid var(--line);background:#fff;border-radius:12px;
@@ -83,23 +85,47 @@
   }
   .search:focus{border-color:var(--mint-line);box-shadow:0 0 0 3px rgba(0,181,120,.10)}
 
-  /* ---------- location cards ---------- */
+  /* ---------- zone (category) cards ---------- */
   .loc-list{display:flex;flex-direction:column;gap:12px}
+  .zone-card{
+    background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);
+    overflow:hidden;
+  }
+  .zone-head{display:block;width:100%;text-align:left;padding:14px 15px 13px}
+  .zone-head:active{background:#FAFCFB}
+  .zone-top{display:flex;align-items:center;gap:8px}
+  .zone-name{
+    font-size:16px;font-weight:800;letter-spacing:-.02em;flex:1 1 auto;min-width:0;
+    word-break:keep-all;overflow-wrap:anywhere;
+  }
+  .zone-count{
+    flex:0 0 auto;font-size:11.5px;font-weight:800;color:var(--mint-deep);
+    background:var(--mint-soft);border:1px solid var(--mint-line);border-radius:999px;padding:2px 8px;
+  }
+  .zone-head .issue-badge{flex:0 0 auto;font-size:10.5px;padding:1px 7px}
+  .zone-chev{flex:0 0 auto;font-size:12px;color:#9AA9A3;transform:rotate(-90deg);transition:transform .18s ease}
+  .zone-head[aria-expanded="true"] .zone-chev{transform:rotate(0deg)}
+  .zone-bar-row{display:flex;align-items:center;gap:9px;margin-top:11px}
+  .zone-meta{margin-top:7px;font-size:11.5px;color:var(--muted);font-weight:700}
+  .zone-body{padding:2px 12px 12px;background:#F8FBFA;border-top:1px solid var(--line)}
+  .zone-body .loc-card{box-shadow:none;margin-top:10px;border-color:#E9EFEC}
+  .zone-body .empty-mini{margin-top:10px;background:#fff}
   .loc-card{
     background:var(--card);border:1px solid var(--line);border-radius:18px;
     box-shadow:var(--shadow);overflow:hidden;
   }
   .loc-main{padding:15px 15px 12px;cursor:pointer}
   .loc-main:active{background:#FAFCFB}
-  .loc-head{display:flex;align-items:flex-start;gap:8px}
+  .loc-head{display:flex;flex-direction:column;align-items:flex-start;gap:5px}
   .loc-name{
-    font-size:17.5px;font-weight:800;letter-spacing:-.02em;margin:0;flex:1 1 auto;
+    font-size:17.5px;font-weight:800;letter-spacing:-.02em;margin:0;width:100%;
     word-break:keep-all;overflow-wrap:anywhere;
   }
   .zone-badge{
     flex:0 0 auto;background:var(--mint-soft);color:var(--mint-deep);
-    border:1px solid var(--mint-line);border-radius:999px;padding:3px 9px;
-    font-size:11.5px;font-weight:800;white-space:nowrap;max-width:45%;overflow:hidden;text-overflow:ellipsis;
+    border:1px solid var(--mint-line);border-radius:999px;padding:2px 9px;
+    font-size:11px;font-weight:800;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;
+    letter-spacing:-.01em;
   }
   .loc-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:7px}
   .muted-line{font-size:12px;color:var(--muted);font-weight:600}
@@ -295,14 +321,12 @@
       </div>
       <p id="summaryText" class="summary">불러오는 중…</p>
       <div class="filters">
-        <div id="zoneChips" class="chips" role="group" aria-label="구역 필터"></div>
-        <input id="searchInput" class="search" type="search" placeholder="위치 이름 검색" autocomplete="off" />
+        <input id="searchInput" class="search" type="search" placeholder="위치 이름 검색 (예: 주차빌딩 3층)" autocomplete="off" />
       </div>
     </div>
   </div>
   <div class="wrap">
     <div id="locList" class="loc-list"></div>
-    <p id="homeEmpty" class="empty" hidden>아직 등록된 위치가 없어요.<br>위의 <strong>+ 위치 추가</strong>로 첫 위치를 등록해 보세요.</p>
     <p class="foot-note">점검 기록은 이 기기 브라우저에만 저장돼요.<br>백업/복원으로 다른 기기로 옮길 수 있어요.</p>
   </div>
 </section>
@@ -418,11 +442,7 @@
     <div class="field">
       <label for="eZone">구역 / 분류</label>
       <input id="eZone" class="input" type="text" maxlength="30" placeholder="예: 제주공항 (직접 입력)" autocomplete="off" />
-      <div class="zone-quick">
-        <button class="chip" type="button" data-zone="주차타워">주차타워</button>
-        <button class="chip" type="button" data-zone="여객청사">여객청사</button>
-        <button class="chip" type="button" data-zone="제주공항">제주공항</button>
-      </div>
+      <div id="eZoneChips" class="zone-quick"></div>
     </div>
 
     <div class="field">
@@ -497,12 +517,14 @@
   /* 기본 위치: 새 기본 위치가 추가돼도 기존 기록을 덮어쓰지 않고
      겹치지 않는 항목만 자동으로 병합된다. 사용자가 지운 기본 위치는
      dismissedDefaults 에 기억해 두었다가 다시 넣지 않는다. */
+  var ZONES = ['주차빌딩', '렌트카 P2 대형주차장', '국제선 격리3층', '국제선 격리2층', '일반대합실'];
+
   var DEFAULT_LOCATIONS = [
     {
       id: 'def-daepark-f',
       name: '대형주차장 여자',
       url: 'https://mobile.hadaworks.com/target?targetId=8f7cf7df-d6a2-4492-82ba-d9d876dea261',
-      zone: '제주공항',
+      zone: '렌트카 P2 대형주차장',
       checklistTitle: '화장실 점검 체크리스트',
       target: 4
     },
@@ -510,7 +532,7 @@
       id: 'def-daepark-m',
       name: '대형주차장 남자',
       url: 'https://mobile.hadaworks.com/target?targetId=554098b2-64f2-4d0b-b1d2-1805f3588ce3',
-      zone: '제주공항',
+      zone: '렌트카 P2 대형주차장',
       checklistTitle: '화장실 점검 체크리스트',
       target: 4
     },
@@ -518,7 +540,7 @@
       id: 'def-rent-f',
       name: '렌트카 여자',
       url: 'https://mobile.hadaworks.com/target?targetId=77cbb717-5b1b-45db-a521-f14031a404d2',
-      zone: '제주공항',
+      zone: '렌트카 P2 대형주차장',
       checklistTitle: '화장실 점검 체크리스트',
       target: 4
     },
@@ -526,7 +548,7 @@
       id: 'def-rent-m',
       name: '렌트카 남자',
       url: 'https://mobile.hadaworks.com/target?targetId=3dc4a8ac-9588-4b49-8f2f-6cac862426e5',
-      zone: '제주공항',
+      zone: '렌트카 P2 대형주차장',
       checklistTitle: '화장실 점검 체크리스트',
       target: 4
     },
@@ -534,7 +556,7 @@
       id: 'def-parkbldg-f',
       name: '주차빌딩 1층 여자',
       url: 'https://mobile.hadaworks.com/target?targetId=f96122b2-179d-4633-9be1-e27b9a872f93',
-      zone: '제주공항',
+      zone: '주차빌딩',
       checklistTitle: '화장실 점검 체크리스트',
       target: 4
     },
@@ -542,7 +564,7 @@
       id: 'def-parkbldg-m',
       name: '주차빌딩 1층 남자',
       url: 'https://mobile.hadaworks.com/target?targetId=6f0edd8b-c533-46d0-8e8d-8610570deddf',
-      zone: '제주공항',
+      zone: '주차빌딩',
       checklistTitle: '화장실 점검 체크리스트',
       target: 4
     },
@@ -550,7 +572,7 @@
       id: 'def-parkbldg4-f',
       name: '주차빌딩 4층 여자',
       url: 'https://mobile.hadaworks.com/target?targetId=af2b2946-e751-4163-b128-2c35e36f9a96',
-      zone: '제주공항',
+      zone: '주차빌딩',
       checklistTitle: '화장실 점검 체크리스트',
       target: 4
     },
@@ -558,7 +580,7 @@
       id: 'def-parkbldg4-m',
       name: '주차빌딩 4층 남자',
       url: 'https://mobile.hadaworks.com/target?targetId=22fd2516-1e8d-43a9-9ab1-9a9ab8053402',
-      zone: '제주공항',
+      zone: '주차빌딩',
       checklistTitle: '화장실 점검 체크리스트',
       target: 4
     },
@@ -566,7 +588,7 @@
       id: 'def-parkbldg3-f',
       name: '주차빌딩 3층 여자',
       url: 'https://mobile.hadaworks.com/target?targetId=651bf06f-5c9a-4ec4-a007-516671894102',
-      zone: '제주공항',
+      zone: '주차빌딩',
       checklistTitle: '화장실 점검 체크리스트',
       target: 4
     },
@@ -574,7 +596,7 @@
       id: 'def-parkbldg3-m',
       name: '주차빌딩 3층 남자',
       url: 'https://mobile.hadaworks.com/target?targetId=7470303b-68f8-49ef-a966-ea44cba8f96c',
-      zone: '제주공항',
+      zone: '주차빌딩',
       checklistTitle: '화장실 점검 체크리스트',
       target: 4
     },
@@ -582,7 +604,7 @@
       id: 'def-parkbldg2-f',
       name: '주차빌딩 2층 여자',
       url: 'https://mobile.hadaworks.com/target?targetId=97d284db-5118-44a7-ada1-06337703120a',
-      zone: '제주공항',
+      zone: '주차빌딩',
       checklistTitle: '화장실 점검 체크리스트',
       target: 4
     },
@@ -590,7 +612,7 @@
       id: 'def-parkbldg2-m',
       name: '주차빌딩 2층 남자',
       url: 'https://mobile.hadaworks.com/target?targetId=9b5119f8-d009-4eb0-9b36-0855904f2fd8',
-      zone: '제주공항',
+      zone: '주차빌딩',
       checklistTitle: '화장실 점검 체크리스트',
       target: 4
     },
@@ -598,7 +620,7 @@
       id: 'def-p2-f',
       name: 'P2 여자',
       url: 'https://mobile.hadaworks.com/target?targetId=9a004056-67dc-43bf-8d3a-9248833bc763',
-      zone: '제주공항',
+      zone: '렌트카 P2 대형주차장',
       checklistTitle: '화장실 점검 체크리스트',
       target: 4
     },
@@ -606,7 +628,7 @@
       id: 'def-p2-m',
       name: 'P2 남자',
       url: 'https://mobile.hadaworks.com/target?targetId=955164ca-1e71-4c2b-b0c9-5a10742c46aa',
-      zone: '제주공항',
+      zone: '렌트카 P2 대형주차장',
       checklistTitle: '화장실 점검 체크리스트',
       target: 4
     }
@@ -687,13 +709,26 @@
     var added = 0;
     DEFAULT_LOCATIONS.forEach(function (def) {
       if (target.dismissedDefaults.indexOf(def.id) !== -1) { return; }
-      var exists = target.locations.some(function (l) {
-        if (l.id === def.id) { return true; }
-        if (def.url && l.url && l.url === def.url) { return true; }
-        if (l.name === def.name) { return true; }
-        return false;
+      var match = null;
+      target.locations.forEach(function (l) {
+        if (match) { return; }
+        if (l.id === def.id) { match = l; return; }
+        if (def.url && l.url && l.url === def.url) { match = l; return; }
+        if (l.name === def.name) { match = l; }
       });
-      if (!exists) {
+      if (match) {
+        /* 구역·이름·링크는 앱이 관리하는 기본값이라 최신 분류로 맞춰 둔다.
+           점검 기록·이슈·사용자가 바꾼 점검 주기는 그대로 둔다. */
+        var idTaken = target.locations.some(function (l) {
+          return l !== match && l.id === def.id;
+        });
+        if (!idTaken) {
+          match.id = def.id;
+          match.name = def.name;
+          match.zone = def.zone;
+          match.url = def.url;
+        }
+      } else {
         target.locations.push(defaultLocationCopy(def));
         added++;
       }
@@ -862,135 +897,234 @@
     $('summaryText').textContent = text;
   }
 
-  function zoneList() {
-    var seen = {};
-    var out = [];
+  var UI_KEY = 'hada-ui-v1';
+  function loadUiState() {
+    try {
+      var raw = localStorage.getItem(UI_KEY);
+      if (!raw) { return {}; }
+      var o = JSON.parse(raw);
+      if (!o || typeof o !== 'object' || !o.open || typeof o.open !== 'object') { return {}; }
+      return o.open;
+    } catch (e) {
+      return {};
+    }
+  }
+  function saveUiState() {
+    try { localStorage.setItem(UI_KEY, JSON.stringify({ open: uiOpen })); } catch (e) { /* ignore */ }
+  }
+  var uiOpen = loadUiState();
+
+  function zoneNamesPresent() {
+    var out = ZONES.slice();
     state.locations.forEach(function (l) {
-      if (l.zone && !seen[l.zone]) { seen[l.zone] = 1; out.push(l.zone); }
+      if (l.zone && out.indexOf(l.zone) === -1) { out.push(l.zone); }
     });
     return out;
   }
 
-  function renderZoneChips() {
-    var box = $('zoneChips');
-    box.textContent = '';
-    var zones = zoneList();
-    if (ui.zone !== '전체' && zones.indexOf(ui.zone) === -1) { ui.zone = '전체'; }
-    var labels = ['전체'].concat(zones);
-    labels.forEach(function (z) {
-      var b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'chip';
-      b.textContent = z;
-      b.setAttribute('data-zone', z);
-      b.setAttribute('aria-pressed', ui.zone === z ? 'true' : 'false');
-      box.appendChild(b);
-    });
+  function matchesQuery(loc, q) {
+    if (!q) { return true; }
+    return (loc.name + ' ' + loc.zone).toLowerCase().indexOf(q) !== -1;
   }
 
-  function renderList() {
+  function makeLocationCard(loc, today) {
+    var count = checksOn(loc, today).length;
+    var pct = loc.target > 0 ? Math.round((count / loc.target) * 100) : 0;
+    var width = Math.min(pct, 100);
+    var issues = openIssues(loc).length;
+
+    var card = document.createElement('article');
+    card.className = 'loc-card';
+    card.setAttribute('data-id', loc.id);
+
+    var main = document.createElement('div');
+    main.className = 'loc-main';
+    main.setAttribute('role', 'button');
+    main.setAttribute('tabindex', '0');
+    main.setAttribute('aria-label', loc.name + ' 상세 열기');
+
+    var head = document.createElement('div');
+    head.className = 'loc-head';
+    if (loc.zone) {
+      var zb = document.createElement('span');
+      zb.className = 'zone-badge';
+      zb.textContent = loc.zone;
+      zb.title = loc.zone;
+      head.appendChild(zb);
+    }
+    var h3 = document.createElement('h3');
+    h3.className = 'loc-name';
+    h3.textContent = loc.name;
+    head.appendChild(h3);
+    main.appendChild(head);
+
+    var meta = document.createElement('div');
+    meta.className = 'loc-meta';
+    var last = document.createElement('span');
+    last.className = 'muted-line';
+    last.textContent = '마지막 ' + agoText(lastCheck(loc));
+    meta.appendChild(last);
+    if (issues > 0) {
+      var ib = document.createElement('span');
+      ib.className = 'issue-badge';
+      ib.textContent = '미해결 ' + issues + '건';
+      meta.appendChild(ib);
+    }
+    main.appendChild(meta);
+
+    var row = document.createElement('div');
+    row.className = 'bar-row';
+    var bar = document.createElement('div');
+    bar.className = 'bar';
+    var fill = document.createElement('i');
+    fill.style.width = width + '%';
+    bar.appendChild(fill);
+    var num = document.createElement('span');
+    num.className = 'bar-num';
+    num.textContent = count + '/' + loc.target + ' · ' + pct + '%';
+    row.appendChild(bar);
+    row.appendChild(num);
+    main.appendChild(row);
+    card.appendChild(main);
+
+    var actions = document.createElement('div');
+    actions.className = 'loc-actions';
+
+    var cbtn = document.createElement('button');
+    cbtn.type = 'button';
+    cbtn.className = 'btn-check';
+    cbtn.setAttribute('data-act', 'check');
+    cbtn.textContent = '✓ 점검하기';
+    actions.appendChild(cbtn);
+
+    if (loc.url) {
+      var alink = document.createElement('a');
+      alink.className = 'btn-link';
+      alink.href = loc.url;
+      alink.target = '_blank';
+      alink.rel = 'noopener noreferrer';
+      alink.setAttribute('data-act', 'open');
+      alink.textContent = '🔗 하다 열기';
+      actions.appendChild(alink);
+    }
+    card.appendChild(actions);
+    return card;
+  }
+
+  function makeZoneSection(zone, allLocs, visibleLocs, q, open) {
+    var today = todayKey();
+    var checks = 0;
+    var targetSum = 0;
+    var done = 0;
+    var issues = 0;
+    allLocs.forEach(function (l) {
+      var c = checksOn(l, today).length;
+      checks += c;
+      targetSum += l.target;
+      if (c >= l.target) { done++; }
+      issues += openIssues(l).length;
+    });
+    var pct = targetSum > 0 ? Math.round((checks / targetSum) * 100) : 0;
+
+    var section = document.createElement('section');
+    section.className = 'zone-card';
+    section.setAttribute('data-zone', zone);
+
+    var head = document.createElement('button');
+    head.type = 'button';
+    head.className = 'zone-head';
+    head.setAttribute('aria-expanded', open ? 'true' : 'false');
+    head.setAttribute('aria-label', (zone || '구역 없음') + ' ' + (open ? '접기' : '펼치기'));
+
+    var top = document.createElement('div');
+    top.className = 'zone-top';
+    var name = document.createElement('span');
+    name.className = 'zone-name';
+    name.textContent = zone || '구역 없음';
+    top.appendChild(name);
+    if (issues > 0) {
+      var ib = document.createElement('span');
+      ib.className = 'issue-badge';
+      ib.textContent = '미해결 ' + issues;
+      top.appendChild(ib);
+    }
+    var cnt = document.createElement('span');
+    cnt.className = 'zone-count';
+    cnt.textContent = allLocs.length + '곳';
+    top.appendChild(cnt);
+    var chev = document.createElement('span');
+    chev.className = 'zone-chev';
+    chev.setAttribute('aria-hidden', 'true');
+    chev.textContent = '▾';
+    top.appendChild(chev);
+    head.appendChild(top);
+
+    var row = document.createElement('div');
+    row.className = 'zone-bar-row';
+    var bar = document.createElement('div');
+    bar.className = 'bar';
+    var fill = document.createElement('i');
+    fill.style.width = Math.min(pct, 100) + '%';
+    bar.appendChild(fill);
+    var num = document.createElement('span');
+    num.className = 'bar-num';
+    num.textContent = checks + '/' + targetSum + ' · ' + pct + '%';
+    row.appendChild(bar);
+    row.appendChild(num);
+    head.appendChild(row);
+
+    var meta = document.createElement('div');
+    meta.className = 'zone-meta';
+    meta.textContent = '오늘 ' + done + '/' + allLocs.length + '곳 완료' + (allLocs.length ? '' : ' · 아직 등록된 위치가 없어요');
+    head.appendChild(meta);
+
+    head.addEventListener('click', function () {
+      uiOpen[zone] = !open;
+      saveUiState();
+      renderZones();
+    });
+    section.appendChild(head);
+
+    if (open) {
+      var body = document.createElement('div');
+      body.className = 'zone-body';
+      if (!visibleLocs.length) {
+        var p = document.createElement('p');
+        p.className = 'empty-mini';
+        p.textContent = q ? '이 구역에는 검색과 맞는 위치가 없어요.' : '아직 이 구역에 등록된 위치가 없어요. + 위치 추가로 등록해 보세요.';
+        body.appendChild(p);
+      } else {
+        visibleLocs.forEach(function (l) {
+          body.appendChild(makeLocationCard(l, today));
+        });
+      }
+      section.appendChild(body);
+    }
+    return section;
+  }
+
+  function renderZones() {
     var list = $('locList');
     list.textContent = '';
     var q = ui.q.trim().toLowerCase();
-    var today = todayKey();
+    var zones = zoneNamesPresent();
+    if (state.locations.some(function (l) { return !l.zone; })) { zones.push(''); }
+
     var shown = 0;
-
-    state.locations.forEach(function (loc) {
-      if (ui.zone !== '전체' && loc.zone !== ui.zone) { return; }
-      if (q) {
-        var hay = (loc.name + ' ' + loc.zone).toLowerCase();
-        if (hay.indexOf(q) === -1) { return; }
-      }
+    zones.forEach(function (zone) {
+      var all = state.locations.filter(function (l) { return (l.zone || '') === zone; });
+      var visible = all.filter(function (l) { return matchesQuery(l, q); });
+      if (q && !visible.length) { return; }
+      if (!q && !all.length && ZONES.indexOf(zone) === -1) { return; }
       shown++;
-      var count = checksOn(loc, today).length;
-      var pct = loc.target > 0 ? Math.round((count / loc.target) * 100) : 0;
-      var width = Math.min(pct, 100);
-      var issues = openIssues(loc).length;
-
-      var card = document.createElement('article');
-      card.className = 'loc-card';
-      card.setAttribute('data-id', loc.id);
-
-      var main = document.createElement('div');
-      main.className = 'loc-main';
-      main.setAttribute('role', 'button');
-      main.setAttribute('tabindex', '0');
-      main.setAttribute('aria-label', loc.name + ' 상세 열기');
-
-      var head = document.createElement('div');
-      head.className = 'loc-head';
-      var h3 = document.createElement('h3');
-      h3.className = 'loc-name';
-      h3.textContent = loc.name;
-      head.appendChild(h3);
-      if (loc.zone) {
-        var zb = document.createElement('span');
-        zb.className = 'zone-badge';
-        zb.textContent = loc.zone;
-        zb.title = loc.zone;
-        head.appendChild(zb);
-      }
-      main.appendChild(head);
-
-      var meta = document.createElement('div');
-      meta.className = 'loc-meta';
-      var last = document.createElement('span');
-      last.className = 'muted-line';
-      last.textContent = '마지막 ' + agoText(lastCheck(loc));
-      meta.appendChild(last);
-      if (issues > 0) {
-        var ib = document.createElement('span');
-        ib.className = 'issue-badge';
-        ib.textContent = '미해결 ' + issues + '건';
-        meta.appendChild(ib);
-      }
-      main.appendChild(meta);
-
-      var row = document.createElement('div');
-      row.className = 'bar-row';
-      var bar = document.createElement('div');
-      bar.className = 'bar';
-      var fill = document.createElement('i');
-      fill.style.width = width + '%';
-      bar.appendChild(fill);
-      var num = document.createElement('span');
-      num.className = 'bar-num';
-      num.textContent = count + '/' + loc.target + ' · ' + pct + '%';
-      row.appendChild(bar);
-      row.appendChild(num);
-      main.appendChild(row);
-
-      card.appendChild(main);
-
-      var actions = document.createElement('div');
-      actions.className = 'loc-actions';
-
-      var cbtn = document.createElement('button');
-      cbtn.type = 'button';
-      cbtn.className = 'btn-check';
-      cbtn.setAttribute('data-act', 'check');
-      cbtn.textContent = '✓ 점검하기';
-      actions.appendChild(cbtn);
-
-      if (loc.url) {
-        var alink = document.createElement('a');
-        alink.className = 'btn-link';
-        alink.href = loc.url;
-        alink.target = '_blank';
-        alink.rel = 'noopener noreferrer';
-        alink.setAttribute('data-act', 'open');
-        alink.textContent = '🔗 하다 열기';
-        actions.appendChild(alink);
-      }
-      card.appendChild(actions);
-      list.appendChild(card);
+      var open = q ? true : !!uiOpen[zone];
+      list.appendChild(makeZoneSection(zone, all, visible, q, open));
     });
 
-    $('homeEmpty').hidden = !(state.locations.length === 0);
-    if (state.locations.length > 0 && shown === 0) {
+    if (!shown) {
       var none = document.createElement('p');
       none.className = 'empty';
-      none.textContent = '검색 조건에 맞는 위치가 없어요.';
+      none.textContent = q ? ('‘' + ui.q.trim() + '’와 맞는 위치가 없어요.') : '표시할 위치가 없어요.';
       list.appendChild(none);
     }
   }
@@ -998,8 +1132,7 @@
   function renderHome(keepScroll) {
     var y = window.scrollY;
     renderSummary();
-    renderZoneChips();
-    renderList();
+    renderZones();
     if (keepScroll) {
       window.scrollTo(0, y);
     }
@@ -1214,6 +1347,21 @@
   }
 
   /* ---------------- editor sheet ---------------- */
+  function renderEditorZoneChips() {
+    var box = $('eZoneChips');
+    box.textContent = '';
+    var current = $('eZone').value.trim();
+    ZONES.forEach(function (z) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip';
+      b.setAttribute('data-zone', z);
+      b.setAttribute('aria-pressed', current === z ? 'true' : 'false');
+      b.textContent = z;
+      box.appendChild(b);
+    });
+  }
+
   function openEditor(id) {
     ui.editId = id || null;
     ui.deleteArmed = false;
@@ -1229,6 +1377,7 @@
     var delBtn = $('eDelete');
     delBtn.textContent = '위치 삭제';
     delBtn.classList.remove('armed');
+    renderEditorZoneChips();
     updateOrderButtons();
     $('editorSheet').hidden = false;
     if (document.activeElement && document.activeElement.blur) { document.activeElement.blur(); }
@@ -1277,6 +1426,8 @@
       save();
       toast('수정했어요.');
       closeEditor();
+      uiOpen[loc.zone] = true;
+      saveUiState();
       if (!$('detailView').hidden) { renderDetail(); }
       renderHome(false);
     } else {
@@ -1294,9 +1445,10 @@
       save();
       toast('위치를 추가했어요.');
       closeEditor();
-      ui.zone = '전체';
       ui.q = '';
       $('searchInput').value = '';
+      uiOpen[newLoc.zone] = true;
+      saveUiState();
       renderHome(false);
     }
   }
@@ -1497,16 +1649,7 @@
 
     $('searchInput').addEventListener('input', function (ev) {
       ui.q = ev.target.value || '';
-      renderList();
-    });
-
-    $('zoneChips').addEventListener('click', function (ev) {
-      var t = ev.target;
-      var z = t && t.getAttribute ? t.getAttribute('data-zone') : null;
-      if (!z) { return; }
-      ui.zone = z;
-      renderZoneChips();
-      renderList();
+      renderZones();
     });
 
     $('locList').addEventListener('click', function (ev) {
@@ -1594,7 +1737,17 @@
       if (!t || !t.getAttribute) { return; }
       if (t.getAttribute('data-close') === 'editor') { closeEditor(); return; }
       var z = t.getAttribute('data-zone');
-      if (z && t.classList.contains('chip')) { $('eZone').value = z; }
+      if (z && t.classList.contains('chip')) {
+        $('eZone').value = z;
+        renderEditorZoneChips();
+      }
+    });
+    $('eZone').addEventListener('input', function () {
+      var current = $('eZone').value.trim();
+      var chips = $('eZoneChips').querySelectorAll('.chip');
+      for (var i = 0; i < chips.length; i++) {
+        chips[i].setAttribute('aria-pressed', chips[i].getAttribute('data-zone') === current ? 'true' : 'false');
+      }
     });
     $('eCancel').addEventListener('click', closeEditor);
     $('eSave').addEventListener('click', saveEditor);
