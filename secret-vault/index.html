@@ -97,6 +97,10 @@ input{font:inherit}
 .tile .fname{position:absolute;left:0;right:0;bottom:0;padding:12px 4px 3px;font-size:9.5px;color:#e6edf7;
   background:linear-gradient(transparent,rgba(0,0,0,.72));overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   text-align:center}
+.tile.video .fname{padding-right:46px}
+.tile .vdur{position:absolute;right:4px;bottom:4px;display:flex;align-items:center;gap:2px;
+  font-size:9.5px;font-weight:700;line-height:1.4;color:#fff;background:rgba(0,0,0,.62);
+  border-radius:5px;padding:0 5px;pointer-events:none;letter-spacing:.01em}
 .tile .check{position:absolute;right:5px;top:5px;width:19px;height:19px;border-radius:50%;
   border:2px solid #fff;background:rgba(0,0,0,.35);display:none}
 .tile.sel .check{display:block;background:var(--acc);border-color:var(--acc)}
@@ -143,6 +147,10 @@ input{font:inherit}
 #vwImg{max-width:100%;max-height:100%;object-fit:contain;display:block;opacity:0;transition:opacity .15s;
   -webkit-user-drag:none;user-select:none}
 #vwImg.ready{opacity:1}
+#vwVideo{max-width:100%;max-height:100%;width:auto;height:auto;display:block;background:#000;
+  opacity:0;transition:opacity .15s}
+#vwVideo.ready{opacity:1}
+#viewer.video .vw-stage{touch-action:auto}
 .vw-spin{position:absolute;width:30px;height:30px;border-radius:50%;border:3px solid #2b3444;border-top-color:var(--acc);
   animation:sp .8s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
@@ -248,7 +256,7 @@ body.sheet-open #toast.on{transform:translate(-50%,0)}
       <div class="err" id="setupErr"></div>
       <div class="keypad" id="setupKeypad"></div>
       <div class="pad-foot"><button class="linkbtn" id="restoreBtn">백업 파일에서 복원</button></div>
-      <p class="notice">모든 사진은 서버로 전송되지 않고 이 기기 브라우저(IndexedDB)에만 암호화 저장됩니다. 브라우저 데이터 삭제 시 함께 지워지므로 중요 사진은 백업 파일로 보관하세요.</p>
+      <p class="notice">모든 사진·동영상은 서버로 전송되지 않고 이 기기 브라우저(IndexedDB)에만 암호화 저장됩니다. 브라우저 데이터 삭제 시 함께 지워지므로 중요 파일은 백업 파일로 보관하세요.</p>
     </div>
   </section>
 
@@ -285,8 +293,8 @@ body.sheet-open #toast.on{transform:translate(-50%,0)}
       <div class="grid" id="grid"></div>
       <div class="empty" id="emptyState" hidden>
         <div class="empty-ico">🖼️</div>
-        <div>이 폴더에 사진이 없습니다</div>
-        <div class="empty-sub">아래 ‘＋ 사진 추가’로 첫 사진을 넣어 보세요</div>
+        <div>이 폴더에 사진·동영상이 없습니다</div>
+        <div class="empty-sub">아래 ‘＋ 사진·동영상 추가’로 첫 사진을 넣어 보세요</div>
       </div>
     </main>
     <div class="progress hidden" id="progress">
@@ -294,11 +302,11 @@ body.sheet-open #toast.on{transform:translate(-50%,0)}
       <div class="ptext" id="progressText"></div>
     </div>
     <footer class="ftr" id="footerBar">
-      <button class="btn primary" id="addBtn">＋ 사진 추가</button>
+      <button class="btn primary" id="addBtn">＋ 사진·동영상 추가</button>
       <button class="btn ghost" id="selBtn">선택</button>
     </footer>
     <div class="selbar hidden" id="selBar">
-      <div class="selcount" id="selCount">0장 선택</div>
+      <div class="selcount" id="selCount">0개 선택</div>
       <div class="selacts">
         <button class="btn tiny" id="selMove">폴더 이동</button>
         <button class="btn tiny" id="selExport">내보내기</button>
@@ -309,7 +317,7 @@ body.sheet-open #toast.on{transform:translate(-50%,0)}
   </section>
 </div>
 
-<input type="file" id="fileInput" accept="image/*" multiple class="hidden">
+<input type="file" id="fileInput" accept="image/*,video/*" multiple class="hidden">
 <input type="file" id="backupInput" accept=".svault,.json,application/json" class="hidden">
 
 <!-- 전체화면 뷰어 -->
@@ -326,7 +334,7 @@ body.sheet-open #toast.on{transform:translate(-50%,0)}
     </div>
   </div>
   <div class="vw-stage" id="vwStage">
-    <div id="vwFrame"><img id="vwImg" alt=""></div>
+    <div id="vwFrame"><img id="vwImg" alt=""><video id="vwVideo" class="hidden" controls playsinline preload="metadata" webkit-playsinline></video></div>
     <button class="vw-nav prev" id="vwPrev" aria-label="이전">‹</button>
     <button class="vw-nav next" id="vwNext" aria-label="다음">›</button>
   </div>
@@ -345,7 +353,7 @@ body.sheet-open #toast.on{transform:translate(-50%,0)}
 /* ══════════════════════════════════════════════════════════════
    시크릿 사진 저장소
    - AES-GCM(window.crypto.subtle) + PBKDF2(SHA-256)
-   - 사진 원본·썸네일·메타데이터·폴더 목록은 모두 암호문만 IndexedDB에 저장
+   - 사진·동영상 원본·썸네일·메타데이터·폴더 목록은 모두 암호문만 IndexedDB에 저장
    ══════════════════════════════════════════════════════════════ */
 
 const DB_NAME = 'svault-db';
@@ -355,6 +363,8 @@ const VERIFY_PLAIN = 'svault-verify-v1';
 const SETTINGS_KEY = 'svault-settings-v1';
 const DEFAULT_FOLDERS = ['일상', '여행', '메모/서류', '비밀'];
 const THUMB_MAX = 420;
+const VIDEO_MAX = 300 * 1024 * 1024;        /* 300MB 초과 동영상은 건너뜀 */
+const VIDEO_THUMB_TIMEOUT = 4000;           /* 첫 프레임 추출 제한 시간 */
 
 const TE = new TextEncoder();
 const TD = new TextDecoder();
@@ -374,6 +384,8 @@ const state = {
   viewIdx: -1,
   viewerUrl: null,
   viewerItemId: null,
+  viewerKind: null,       // 'image' | 'video'
+  viewerVideoUrl: null,
   uploads: 0,
   lockGuardUntil: 0,
   setupPin: '',
@@ -415,6 +427,25 @@ function fmtDate(ts) {
   const d = new Date(ts);
   const p = (x) => String(x).padStart(2, '0');
   return d.getFullYear() + '.' + p(d.getMonth() + 1) + '.' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+/* 동영상 재생시간 표기: 0:15 / 12:34 / 1:02:03 */
+function fmtDur(sec) {
+  const s = Math.round(Number(sec) || 0);
+  if (!(s > 0)) return '';
+  const p = (x) => String(x).padStart(2, '0');
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = s % 60;
+  return h ? h + ':' + p(m) + ':' + p(ss) : m + ':' + p(ss);
+}
+/* 동영상 판별: MIME 또는 확장자 */
+const VIDEO_EXT_RE = /\.(mp4|mov|webm|m4v|3gp|3g2|ogv|ogg|mkv)$/i;
+const IMG_EXT_RE = /\.(jpe?g|png|gif|webp|bmp|heic|heif|avif|tiff?)$/i;
+function isVideoFile(f) {
+  if (!f) return false;
+  if (/^video\//.test(f.type || '')) return true;
+  return VIDEO_EXT_RE.test(f.name || '');
+}
+function itemKind(item) {
+  return item && item.meta && item.meta.kind === 'video' ? 'video' : 'image';
 }
 
 const B64 = {
@@ -851,6 +882,7 @@ function renderGrid() {
     const tile = document.createElement('button');
     tile.type = 'button';
     tile.className = 'tile' + (state.selected.has(item.id) ? ' sel' : '');
+    if (itemKind(item) === 'video') tile.className += ' video';
     tile.dataset.id = String(item.id);
     const img = document.createElement('img');
     img.alt = '';
@@ -869,6 +901,13 @@ function renderGrid() {
     const chk = document.createElement('span');
     chk.className = 'check';
     tile.appendChild(chk);
+    if (itemKind(item) === 'video') {
+      const dur = fmtDur(item.meta.duration);
+      const vd = document.createElement('span');
+      vd.className = 'vdur';
+      vd.textContent = dur ? '▶ ' + dur : '▶';
+      tile.appendChild(vd);
+    }
     frag.appendChild(tile);
   });
   grid.appendChild(frag);
@@ -906,7 +945,7 @@ async function loadThumb(item, img) {
 function renderFooter() {
   $('#footerBar').classList.toggle('hidden', state.selecting);
   $('#selBar').classList.toggle('hidden', !state.selecting);
-  $('#selCount').textContent = state.selected.size + '장 선택';
+  $('#selCount').textContent = state.selected.size + '개 선택';
   $('#selDel').disabled = state.selected.size === 0;
   $('#selMove').disabled = state.selected.size === 0;
   $('#selExport').disabled = state.selected.size === 0;
@@ -980,7 +1019,7 @@ function promptRenameFolder(f) {
 
 function promptDeleteFolder(f) {
   const n = countFor(f.id);
-  confirmSheet('폴더 삭제', '‘' + f.name + '’ 폴더를 삭제할까요?' + (n ? '\n이 폴더의 사진 ' + n + '장은 지워지지 않고 ‘미분류’로 남습니다.' : ''), async () => {
+  confirmSheet('폴더 삭제', '‘' + f.name + '’ 폴더를 삭제할까요?' + (n ? '\n이 폴더의 ' + n + '개 항목은 지워지지 않고 ‘미분류’로 남습니다.' : ''), async () => {
     state.folders = state.folders.filter(x => x.id !== f.id);
     await saveFolders();
     if (state.folderId === f.id) { state.view = 'all'; state.folderId = null; }
@@ -1009,8 +1048,8 @@ function pickFolder(title, opts) {
           b.addEventListener('click', () => { done(value); close(); });
           box.appendChild(b);
         };
-        state.folders.forEach(f => add(f.id, '📁 ' + f.name, countFor(f.id) + '장'));
-        if (!opts || opts.allowNone !== false) add(null, '🗂 미분류', '폴더 없이 저장 · ' + unassignedCount() + '장');
+        state.folders.forEach(f => add(f.id, '📁 ' + f.name, countFor(f.id) + '개'));
+        if (!opts || opts.allowNone !== false) add(null, '🗂 미분류', '폴더 없이 저장 · ' + unassignedCount() + '개');
         if (!opts || opts.allowNew !== false) {
           const b = document.createElement('button');
           b.type = 'button';
@@ -1084,6 +1123,124 @@ async function makeThumb(file) {
   return new Uint8Array(await blob.arrayBuffer());
 }
 
+/* ───────────── 동영상 썸네일·재생시간 ───────────── */
+/* 코덱 제한 등으로 프레임을 얻지 못할 때 쓰는 폴백 JPEG(어두운 배경 + ▶) */
+function makeVideoFallbackThumb() {
+  try {
+    const N = THUMB_MAX;
+    const c = document.createElement('canvas');
+    c.width = N; c.height = N;
+    const ctx = c.getContext('2d');
+    const g = ctx.createLinearGradient(0, 0, 0, N);
+    g.addColorStop(0, '#1d2534');
+    g.addColorStop(1, '#0c1017');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, N, N);
+    const cx = N / 2, cy = N / 2, r = N * 0.17;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,.10)';
+    ctx.fill();
+    ctx.lineWidth = Math.max(2, N * 0.01);
+    ctx.strokeStyle = 'rgba(255,255,255,.38)';
+    ctx.stroke();
+    const k = r * 0.52;
+    ctx.beginPath();
+    ctx.moveTo(cx - k * 0.55, cy - k);
+    ctx.lineTo(cx + k * 0.95, cy);
+    ctx.lineTo(cx - k * 0.55, cy + k);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255,255,255,.88)';
+    ctx.fill();
+    return new Promise((resolve) => {
+      c.toBlob((blob) => resolve(blob), 'image/jpeg', 0.8);
+    });
+  } catch (e) {
+    return Promise.resolve(null);
+  }
+}
+
+/* <video>의 첫 프레임을 캔버스로 떠서 JPEG 썸네일과 duration을 돌려준다. 실패해도 업로드를 막지 않는다. */
+function captureVideoThumb(file) {
+  return new Promise((resolve) => {
+    let url = null;
+    let settled = false;
+    let duration = 0;
+    let timer = null, dataTimer = null;
+    const v = document.createElement('video');
+    v.muted = true;
+    v.playsInline = true;
+    v.setAttribute('playsinline', '');
+    v.setAttribute('webkit-playsinline', '');
+    v.preload = 'metadata';
+
+    const cleanup = () => {
+      if (timer) { clearTimeout(timer); timer = null; }
+      if (dataTimer) { clearTimeout(dataTimer); dataTimer = null; }
+      try { v.pause(); } catch (e) {}
+      v.removeAttribute('src');
+      try { v.load(); } catch (e) {}
+      if (url) { try { URL.revokeObjectURL(url); } catch (e) {} url = null; }
+    };
+    const finish = (bytes) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve({ thumb: bytes || null, duration: duration || 0 });
+    };
+    const fallback = () => {
+      makeVideoFallbackThumb()
+        .then((blob) => {
+          if (!blob || !blob.arrayBuffer) { finish(null); return; }
+          blob.arrayBuffer().then((ab) => finish(new Uint8Array(ab)), () => finish(null));
+        })
+        .catch(() => finish(null));
+    };
+    const grab = () => {
+      try {
+        const vw = v.videoWidth || 0, vh = v.videoHeight || 0;
+        if (!vw || !vh) { fallback(); return; }
+        const s = Math.min(1, THUMB_MAX / Math.max(vw, vh));
+        const w = Math.max(1, Math.round(vw * s)), h = Math.max(1, Math.round(vh * s));
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        const ctx = c.getContext('2d');
+        ctx.drawImage(v, 0, 0, w, h);
+        c.toBlob((blob) => {
+          if (!blob || !blob.arrayBuffer) { fallback(); return; }
+          blob.arrayBuffer().then((ab) => finish(new Uint8Array(ab)), () => fallback());
+        }, 'image/jpeg', 0.78);
+      } catch (e) {
+        fallback();
+      }
+    };
+
+    timer = setTimeout(fallback, VIDEO_THUMB_TIMEOUT);
+    v.addEventListener('loadedmetadata', () => {
+      duration = isFinite(v.duration) && v.duration > 0 ? v.duration : 0;
+      if (dataTimer) { clearTimeout(dataTimer); dataTimer = null; }
+      try {
+        const t = Math.min(0.5, duration * 0.1 || 0);
+        v.currentTime = t > 0 ? t : 0.04;   // 0초로 되돌리면 seeked가 안 올 수 있음
+      } catch (e) { grab(); return; }
+      dataTimer = setTimeout(grab, 1500);   // seeked가 늦거나 없을 때 대비
+    });
+    v.addEventListener('seeked', grab, { once: true });
+    v.addEventListener('error', fallback, { once: true });
+
+    try {
+      url = URL.createObjectURL(file);
+      v.src = url;
+      try { v.load(); } catch (e) {}
+    } catch (e) {
+      fallback();
+    }
+  });
+}
+
+/* 캔버스조차 실패하는 극단의 경우: 1x1 어두운 JPEG */
+const TINY_JPEG_B64 = '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAoHBwgHBgoICAgLCgoLDhgQDg0NDh0VFhEYIx8lJCIfIiEmKzcvJik0KSEiMEExNDk7Pj4+JS5ESUM8SDc9Pjv/2wBDAQoLCw4NDhwQEBw7KCIoOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozv/wAARCAABAAEDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDy2iiitiD/2Q==';
+
 function showProgress(i, n, name) {
   $('#progress').classList.remove('hidden');
   $('#progressBar').style.width = (n ? Math.round((i / n) * 100) : 0) + '%';
@@ -1092,27 +1249,41 @@ function showProgress(i, n, name) {
 function hideProgress() { $('#progress').classList.add('hidden'); }
 
 async function addFiles(files, folderId) {
-  const list = Array.from(files || []).filter(f => /^image\//.test(f.type) || /\.(jpe?g|png|gif|webp|bmp|heic|heif|avif)$/i.test(f.name || ''));
-  if (!list.length) { toast('사진 파일이 없습니다'); return; }
+  const list = Array.from(files || []).filter(f =>
+    isVideoFile(f) || /^image\//.test((f && f.type) || '') || IMG_EXT_RE.test((f && f.name) || ''));
+  if (!list.length) { toast('사진·동영상 파일이 없습니다'); return; }
   if (!state.key) return;
   state.uploads++;
   showProgress(0, list.length, '');
-  let ok = 0, fail = 0;
+  let ok = 0, fail = 0, tooBig = 0;
   for (let i = 0; i < list.length; i++) {
     const f = list[i];
     if (!state.key) { fail++; continue; }
+    const video = isVideoFile(f);
+    if (video && f.size > VIDEO_MAX) { tooBig++; continue; }   // 브라우저 메모리 보호
     showProgress(i, list.length, f.name);
     try {
-      const thumb = await makeThumb(f);
+      let thumb, duration = 0;
+      const kind = video ? 'video' : 'image';
+      if (video) {
+        const cap = await captureVideoThumb(f);
+        thumb = cap.thumb;
+        duration = cap.duration || 0;
+        if (!thumb || !thumb.length) thumb = B64.dec(TINY_JPEG_B64);
+      } else {
+        thumb = await makeThumb(f);
+      }
       const raw = new Uint8Array(await f.arrayBuffer());
       const meta = {
-        name: f.name || ('사진 ' + (i + 1)),
-        type: f.type || 'image/jpeg',
+        kind: kind,
+        name: f.name || ((video ? '동영상 ' : '사진 ') + (i + 1)),
+        type: f.type || (video ? 'video/mp4' : 'image/jpeg'),
         size: raw.length,
         fav: false,
         folderId: folderId || null,
         createdAt: Date.now() + i
       };
+      if (video) meta.duration = duration;
       const me = await encJSON(state.key, meta);
       const te = await encBytes(state.key, thumb);
       const be = await encBytes(state.key, raw);
@@ -1128,8 +1299,12 @@ async function addFiles(files, folderId) {
   state.uploads--;
   hideProgress();
   if (state.key) { await loadItems(); renderAll(); }
-  if (ok) toast(ok + '장 저장했습니다');
-  if (fail) toast(fail + '장을 저장하지 못했습니다', 2600);
+  if (tooBig) {
+    toast('300MB 이하 동영상만 추가할 수 있습니다' + (ok ? ' (' + ok + '개 저장)' : ''), 3200);
+  } else {
+    if (ok) toast(ok + '개 저장했습니다');
+    if (fail) toast(fail + '개를 저장하지 못했습니다', 2600);
+  }
 }
 
 function insertItem(itemRec, blobRec) {
@@ -1188,7 +1363,7 @@ function toggleSelect(id) {
 async function bulkMove() {
   const ids = Array.from(state.selected);
   if (!ids.length) return;
-  const target = await pickFolder(ids.length + '장을 어느 폴더로 옮길까요?');
+  const target = await pickFolder(ids.length + '개를 어느 폴더로 옮길까요?');
   if (target === undefined) return;
   showProgress(0, ids.length, '이동 중');
   let i = 0;
@@ -1201,19 +1376,19 @@ async function bulkMove() {
   state.selecting = false;
   await loadItems();
   renderAll();
-  toast(ids.length + '장을 옮겼습니다');
+  toast(ids.length + '개를 옮겼습니다');
 }
 
 async function bulkDelete() {
   const ids = Array.from(state.selected);
   if (!ids.length) return;
-  confirmSheet('삭제', ids.length + '장의 사진을 완전히 삭제할까요?\n삭제한 사진은 되돌릴 수 없습니다.', async () => {
+  confirmSheet('삭제', ids.length + '개의 사진·동영상을 완전히 삭제할까요?\n삭제한 항목은 되돌릴 수 없습니다.', async () => {
     await deleteItems(ids);
     state.selected.clear();
     state.selecting = false;
     await loadItems();
     renderAll();
-    toast(ids.length + '장을 삭제했습니다');
+    toast(ids.length + '개를 삭제했습니다');
   }, '삭제');
 }
 
@@ -1259,11 +1434,34 @@ async function openViewer(itemId) {
   await showViewerImage();
 }
 
+/* 뷰어의 동영상 정지·폐기. 메모리와 복호화된 바이트를 바로 버린다. */
+function stopViewerVideo() {
+  const v = $('#vwVideo');
+  if (v) {
+    try { v.pause(); } catch (e) {}
+    try { v.removeAttribute('src'); } catch (e) {}
+    try { v.load(); } catch (e) {}
+    v.onloadeddata = null;
+    v.onerror = null;
+    v.classList.remove('ready');
+    v.classList.add('hidden');
+  }
+  if (state.viewerVideoUrl) {
+    try { URL.revokeObjectURL(state.viewerVideoUrl); } catch (e) {}
+    state.viewerVideoUrl = null;
+  }
+  state.viewerKind = null;
+  const vw = $('#viewer');
+  if (vw) vw.classList.remove('video');
+}
+
 function closeViewer(silent) {
+  stopViewerVideo();
   $('#viewer').classList.remove('on');
   const img = $('#vwImg');
   img.removeAttribute('src');
   img.classList.remove('ready');
+  img.classList.remove('hidden');
   if (state.viewerUrl) { try { URL.revokeObjectURL(state.viewerUrl); } catch (e) {} state.viewerUrl = null; }
   state.viewerItemId = null;
   state.viewIdx = -1;
@@ -1277,8 +1475,15 @@ async function showViewerImage() {
   if (!item) return;
   state.viewerItemId = id;
   const img = $('#vwImg');
+  const vid = $('#vwVideo');
   img.classList.remove('ready');
   img.removeAttribute('src');
+  stopViewerVideo();                       // 이전 동영상 정지·URL 폐기
+  const isVid = itemKind(item) === 'video';
+  state.viewerKind = isVid ? 'video' : 'image';
+  $('#viewer').classList.toggle('video', isVid);
+  img.classList.toggle('hidden', isVid);
+  vid.classList.toggle('hidden', !isVid);
   const stage = $('#vwStage');
   let spin = $('.vw-spin', stage);
   if (!spin) { spin = document.createElement('div'); spin.className = 'vw-spin'; stage.appendChild(spin); }
@@ -1286,8 +1491,10 @@ async function showViewerImage() {
   if (state.viewerUrl) { try { URL.revokeObjectURL(state.viewerUrl); } catch (e) {} state.viewerUrl = null; }
   resetZoom();
 
-  $('#vwCaption').textContent = (item.meta.name || '사진') + ' · ' + fmtBytes(item.meta.size) +
-    (folderName(item.meta.folderId) ? ' · ' + folderName(item.meta.folderId) : '');
+  const caps = [item.meta.name || (isVid ? '동영상' : '사진'), fmtBytes(item.meta.size)];
+  if (isVid && item.meta.duration) caps.push(fmtDur(item.meta.duration));
+  if (folderName(item.meta.folderId)) caps.push(folderName(item.meta.folderId));
+  $('#vwCaption').textContent = caps.filter(Boolean).join(' · ');
   $('#vwIndex').textContent = (state.viewIdx + 1) + ' / ' + state.viewList.length;
   $('#vwFav').textContent = item.meta.fav ? '★' : '☆';
   $('#vwFav').classList.toggle('on', !!item.meta.fav);
@@ -1299,14 +1506,32 @@ async function showViewerImage() {
     const b = await idbGet('blobs', id);
     if (!b || !state.key) { spin.style.display = 'none'; return; }
     const bytes = await decBytes(state.key, b.iv, b.data);
-    const url = URL.createObjectURL(new Blob([bytes], { type: item.meta.type || 'image/jpeg' }));
-    if (state.viewerItemId !== id) { URL.revokeObjectURL(url); return; }
-    state.viewerUrl = url;
-    img.onload = () => { img.classList.add('ready'); spin.style.display = 'none'; };
-    img.src = url;
+    if (isVid) {
+      const url = URL.createObjectURL(new Blob([bytes], { type: item.meta.type || 'video/mp4' }));
+      if (state.viewerItemId !== id || !state.key) { URL.revokeObjectURL(url); return; }
+      state.viewerVideoUrl = url;
+      vid.onloadeddata = () => {
+        if (state.viewerVideoUrl !== url) return;
+        vid.classList.add('ready');
+        spin.style.display = 'none';
+      };
+      vid.onerror = () => {
+        if (state.viewerVideoUrl !== url) return;
+        spin.style.display = 'none';
+        toast('동영상을 재생할 수 없습니다');
+      };
+      vid.src = url;
+      try { vid.load(); } catch (e) {}
+    } else {
+      const url = URL.createObjectURL(new Blob([bytes], { type: item.meta.type || 'image/jpeg' }));
+      if (state.viewerItemId !== id) { URL.revokeObjectURL(url); return; }
+      state.viewerUrl = url;
+      img.onload = () => { img.classList.add('ready'); spin.style.display = 'none'; };
+      img.src = url;
+    }
   } catch (e) {
     spin.style.display = 'none';
-    toast('사진을 열 수 없습니다');
+    toast(isVid ? '동영상을 열 수 없습니다' : '사진을 열 수 없습니다');
   }
 }
 
@@ -1342,26 +1567,31 @@ async function viewerMove() {
   item.meta.folderId = target || null;
   await loadItems();
   renderAll();
-  $('#vwCaption').textContent = (item.meta.name || '사진') + ' · ' + fmtBytes(item.meta.size) +
-    (folderName(item.meta.folderId) ? ' · ' + folderName(item.meta.folderId) : '');
+  const isVid = itemKind(item) === 'video';
+  const caps = [item.meta.name || (isVid ? '동영상' : '사진'), fmtBytes(item.meta.size)];
+  if (isVid && item.meta.duration) caps.push(fmtDur(item.meta.duration));
+  if (folderName(item.meta.folderId)) caps.push(folderName(item.meta.folderId));
+  $('#vwCaption').textContent = caps.filter(Boolean).join(' · ');
   toast('폴더를 옮겼습니다');
 }
 
 async function downloadItem(item) {
   if (!item || !state.key) return false;
+  const video = itemKind(item) === 'video';
   try {
     const b = await idbGet('blobs', item.id);
+    if (!b) throw new Error('원본 없음');
     const bytes = await decBytes(state.key, b.iv, b.data);
-    const blob = new Blob([bytes], { type: item.meta.type || 'image/jpeg' });
+    const blob = new Blob([bytes], { type: item.meta.type || (video ? 'video/mp4' : 'image/jpeg') });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = item.meta.name || ('photo-' + item.id + '.jpg');
+    a.download = item.meta.name || ((video ? 'video-' : 'photo-') + item.id + (video ? '.mp4' : '.jpg'));
     document.body.appendChild(a);
     a.click();
     a.remove();
     setTimeout(() => { try { URL.revokeObjectURL(url); } catch (e) {} }, 8000);
-    toast('사진을 내려받았습니다');
+    toast(video ? '동영상을 내려받았습니다' : '사진을 내려받았습니다');
     return true;
   } catch (e) {
     toast('내보내기에 실패했습니다');
@@ -1372,12 +1602,14 @@ async function downloadItem(item) {
 async function viewerDelete() {
   const id = state.viewerItemId;
   if (!id) return;
-  confirmSheet('삭제', '이 사진을 완전히 삭제할까요?\n삭제한 사진은 되돌릴 수 없습니다.', async () => {
+  const cur = state.items.find(i => i.id === id);
+  const what = cur && itemKind(cur) === 'video' ? '이 동영상을' : '이 사진을';
+  confirmSheet('삭제', what + ' 완전히 삭제할까요?\n삭제한 항목은 되돌릴 수 없습니다.', async () => {
     const wasIdx = state.viewIdx;
     await deleteItems([id]);
     await loadItems();
     renderAll();
-    // 다음 사진으로
+    // 다음 항목으로
     const list = visibleItems().map(i => i.id);
     state.viewList = list;
     if (!list.length) { closeViewer(); toast('삭제했습니다'); return; }
@@ -1392,6 +1624,7 @@ function initViewerGestures() {
   const stage = $('#vwStage');
   stage.addEventListener('pointerdown', (e) => {
     if (e.target.closest('.vw-nav')) return;
+    if (state.viewerKind === 'video') return;   // 동영상은 기본 컨트롤을 방해하지 않음
     zoom.ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
     zoom.moved = false;
     if (zoom.ptrs.size === 1) {
@@ -1652,7 +1885,7 @@ function openSettings() {
         const n = document.createElement('div');
         n.className = 'fn'; n.textContent = '📁 ' + f.name;
         const c = document.createElement('div');
-        c.className = 'fc'; c.textContent = countFor(f.id) + '장';
+        c.className = 'fc'; c.textContent = countFor(f.id) + '개';
         const ed = document.createElement('button');
         ed.type = 'button'; ed.className = 'mini'; ed.textContent = '✏️';
         ed.addEventListener('click', () => { promptRenameFolder(f); });
@@ -1671,7 +1904,7 @@ function openSettings() {
       frag.appendChild(sec('백업'));
       const expRow = document.createElement('div');
       expRow.className = 'row';
-      expRow.innerHTML = '<div class="rl"><div class="rt">암호화 백업 내보내기</div><div class="rs">사진·폴더·즐겨찾기를 암호문 그대로 .svault 파일로 저장</div></div>';
+      expRow.innerHTML = '<div class="rl"><div class="rt">암호화 백업 내보내기</div><div class="rs">사진·동영상·폴더·즐겨찾기를 암호문 그대로 .svault 파일로 저장</div></div>';
       const exb = document.createElement('button');
       exb.type = 'button'; exb.className = 'btn tiny'; exb.textContent = '내보내기';
       exb.addEventListener('click', () => exportBackup(null));
@@ -1690,13 +1923,14 @@ function openSettings() {
       frag.appendChild(sec('안내'));
       const info = document.createElement('div');
       info.className = 'doc-note';
-      info.textContent = '모든 사진은 서버로 전송되지 않고 이 기기 브라우저(IndexedDB)에만 암호화 저장됩니다. 브라우저 데이터 삭제 시 함께 지워지므로 중요 사진은 백업 파일로 보관하세요.';
+      info.textContent = '모든 사진·동영상은 서버로 전송되지 않고 이 기기 브라우저(IndexedDB)에만 암호화 저장됩니다. 브라우저 데이터 삭제 시 함께 지워지므로 중요 파일은 백업 파일로 보관하세요.';
       frag.appendChild(info);
       const stat = document.createElement('div');
       stat.className = 'doc-note';
       stat.style.whiteSpace = 'pre-line';
-      stat.textContent = '사진 ' + state.items.length + '장 · 폴더 ' + state.folders.length + '개 · 즐겨찾기 ' +
-        state.items.filter(i => i.meta.fav).length + '장\n키 유도 PBKDF2-SHA256 ' + (state.config ? state.config.iterations.toLocaleString() : '') + '회 · 암호 AES-GCM 256bit';
+      const nVid = state.items.filter(i => i.meta.kind === 'video').length;
+      stat.textContent = '사진 ' + (state.items.length - nVid) + '장 · 동영상 ' + nVid + '편 · 폴더 ' + state.folders.length + '개 · 즐겨찾기 ' +
+        state.items.filter(i => i.meta.fav).length + '개\n키 유도 PBKDF2-SHA256 ' + (state.config ? state.config.iterations.toLocaleString() : '') + '회 · 암호 AES-GCM 256bit';
       frag.appendChild(stat);
 
       frag.appendChild(sec('위험'));
@@ -1704,7 +1938,7 @@ function openSettings() {
       wipe.type = 'button'; wipe.className = 'btn'; wipe.style.cssText = 'background:#241419;color:#ff8b8f;border:1px solid #4a2a30;width:100%';
       wipe.textContent = '전체 데이터 완전 삭제(초기화)';
       wipe.addEventListener('click', () => {
-        confirmSheet('초기화', '저장된 사진·폴더·PIN을 모두 이 기기에서 지웁니다.\n되돌릴 수 없으니 먼저 백업 파일을 내보내 두세요.', async () => {
+        confirmSheet('초기화', '저장된 사진·동영상·폴더·PIN을 모두 이 기기에서 지웁니다.\n되돌릴 수 없으니 먼저 백업 파일을 내보내 두세요.', async () => {
           await wipeAll();
         }, '모두 삭제');
       });
@@ -1899,7 +2133,7 @@ async function exportBackup(ids) {
     a.click();
     a.remove();
     setTimeout(() => { try { URL.revokeObjectURL(url); } catch (e) {} }, 10000);
-    toast(out.length + '장을 백업 파일로 내보냈습니다');
+    toast(out.length + '개를 백업 파일로 내보냈습니다');
     return true;
   } catch (e) {
     console.error(e);
@@ -1919,20 +2153,23 @@ function stampSec() {
 const EXT_BY_TYPE = {
   'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/pjpeg': 'jpg', 'image/png': 'png',
   'image/webp': 'webp', 'image/gif': 'gif', 'image/bmp': 'bmp', 'image/heic': 'heic',
-  'image/heif': 'heif', 'image/avif': 'avif', 'image/tiff': 'tif', 'image/svg+xml': 'svg'
+  'image/heif': 'heif', 'image/avif': 'avif', 'image/tiff': 'tif', 'image/svg+xml': 'svg',
+  'video/mp4': 'mp4', 'video/quicktime': 'mov', 'video/webm': 'webm', 'video/x-m4v': 'm4v',
+  'video/3gpp': '3gp', 'video/3gpp2': '3g2', 'video/ogg': 'ogv', 'video/x-matroska': 'mkv'
 };
 
 /* 원본 파일명 유지 + zip/공유에 안전한 이름 만들기 */
 function exportNameFor(item) {
   const meta = item.meta || {};
+  const video = meta.kind === 'video';
   const raw = String(meta.name || '').trim();
   const mExt = (raw.match(/\.([A-Za-z0-9]{2,5})$/) || [])[1];
-  let ext = EXT_BY_TYPE[meta.type] || (mExt ? mExt.toLowerCase() : 'jpg');
-  ext = String(ext).replace(/[^a-z0-9]/gi, '') || 'jpg';
+  let ext = EXT_BY_TYPE[meta.type] || (mExt ? mExt.toLowerCase() : (video ? 'mp4' : 'jpg'));
+  ext = String(ext).replace(/[^a-z0-9]/gi, '') || (video ? 'mp4' : 'jpg');
   let base = raw.replace(/\.[^./\\]*$/, '');
   base = base.replace(/[\\/:*?"<>|\u0000-\u001f\u007f]/g, '_').replace(/\s+/g, ' ').trim();
-  if (!base) base = '사진';
-  if (base.length > 90) base = base.slice(0, 90).trim() || '사진';
+  if (!base) base = video ? '동영상' : '사진';
+  if (base.length > 90) base = base.slice(0, 90).trim() || (video ? '동영상' : '사진');
   return { base: base, ext: ext };
 }
 
@@ -2116,7 +2353,7 @@ async function exportSelectionSequential(ids) {
       if (b) {
         const bytes = await decBytes(state.key, b.iv, b.data);
         const nm = exportNameFor(it);
-        downloadBytes(bytes, uniqueFileName(nm.base, nm.ext, used), it.meta.type || 'image/jpeg');
+        downloadBytes(bytes, uniqueFileName(nm.base, nm.ext, used), it.meta.type || (it.meta.kind === 'video' ? 'video/mp4' : 'image/jpeg'));
         ok++;
       }
       if (i < list.length - 1) await sleep(450);
@@ -2135,7 +2372,9 @@ function canSharePhotoFiles() {
   if (typeof navigator.share !== 'function') return false;
   if (typeof navigator.canShare !== 'function') return false;
   try {
-    return !!navigator.canShare({ files: [new File([new Uint8Array(8)], 'photo.jpg', { type: 'image/jpeg' })] });
+    const img = new File([new Uint8Array(8)], 'photo.jpg', { type: 'image/jpeg' });
+    const vid = new File([new Uint8Array(8)], 'video.mp4', { type: 'video/mp4' });
+    return !!navigator.canShare({ files: [img] }) || !!navigator.canShare({ files: [vid] });
   } catch (e) { return false; }
 }
 
@@ -2153,7 +2392,7 @@ async function buildShareFiles(ids) {
       const bytes = await decBytes(state.key, b.iv, b.data);
       const nm = exportNameFor(it);
       const name = uniqueFileName(nm.base, nm.ext, used);
-      const type = it.meta.type || (nm.ext === 'jpg' ? 'image/jpeg' : 'image/' + nm.ext);
+      const type = it.meta.type || (it.meta.kind === 'video' ? 'video/mp4' : (nm.ext === 'jpg' ? 'image/jpeg' : 'image/' + nm.ext));
       try { files.push(new File([bytes], name, { type: type })); }
       catch (e2) { files.push(new File([bytes], name)); }
     } catch (e) {
@@ -2177,7 +2416,8 @@ function showShareRetryPanel(host, files, close, total) {
   host.textContent = '';
   const note = document.createElement('div');
   note.className = 'doc-note';
-  note.textContent = '사진 ' + files.length + '장을 준비했어요. 브라우저가 자동 공유를 막아서, 아래 버튼을 한 번만 눌러 주세요.';
+  note.textContent = (files.length > 1 ? files.length + '개 항목' : '항목 1개') +
+    '을 준비했어요. 브라우저가 자동 공유를 막아서, 아래 버튼을 한 번만 눌러 주세요.';
   host.appendChild(note);
   const b = document.createElement('button');
   b.type = 'button';
@@ -2189,7 +2429,7 @@ function showShareRetryPanel(host, files, close, total) {
     if (b.disabled) return;
     b.disabled = true;
     tryShareFiles(files).then((r) => {
-      if (r.ok) { close(); finishSelection(total + '장을 공유했습니다'); return; }
+      if (r.ok) { close(); finishSelection(total + '개를 공유했습니다'); return; }
       b.disabled = false;
       if (r.err && r.err.name === 'AbortError') { toast('공유를 취소했습니다'); return; }
       console.error(r.err);
@@ -2206,7 +2446,7 @@ function openExportSheet() {
   const shareOk = canSharePhotoFiles();
   let busy = false;
   openSheet({
-    title: '어떻게 내보낼까요? · ' + n + '장',
+    title: '어떻게 내보낼까요? · ' + n + '개',
     body: (host, close) => {
       const addOpt = (icon, title, desc, rec, tag, onClick) => {
         const b = document.createElement('button');
@@ -2247,35 +2487,35 @@ function openExportSheet() {
         return b;
       };
 
-      addOpt('📦', '사진 묶음으로 내려받기 (.zip)',
-        '선택한 ' + n + '장을 zip 파일 하나로 받습니다. 갤러리·PC에서 압축을 풀어 보세요.', true, '추천',
+      addOpt('📦', '사진·동영상 묶음으로 내려받기 (.zip)',
+        '선택한 ' + n + '개를 zip 파일 하나로 받습니다. 갤러리·PC에서 압축을 풀어 보세요.', true, '추천',
         async (close) => {
           const ok = await exportSelectionZip(ids);
-          if (ok) { close(); finishSelection(n + '장을 zip 파일로 내려받았습니다'); }
+          if (ok) { close(); finishSelection(n + '개를 zip 파일로 내려받았습니다'); }
         });
 
-      addOpt('🖼️', '한 장씩 차례로 내려받기',
-        '450ms 간격으로 한 장씩 저장합니다. 크롬이 "여러 파일 다운로드"를 물으면 허용을 눌러 주세요.', false, '',
+      addOpt('🖼️', '하나씩 차례로 내려받기',
+        '450ms 간격으로 하나씩 저장합니다. 크롬이 "여러 파일 다운로드"를 물으면 허용을 눌러 주세요.', false, '',
         async (close) => {
           const ok = await exportSelectionSequential(ids);
-          if (ok) { close(); finishSelection(n + '장을 내려받았습니다'); }
+          if (ok) { close(); finishSelection(n + '개를 내려받았습니다'); }
         });
 
       if (shareOk) {
         addOpt('📤', '공유하기 (갤러리·카톡 등)',
-          '사진을 다른 앱으로 바로 보냅니다.', false, '',
+          '사진·동영상을 다른 앱으로 바로 보냅니다.', false, '',
           async (close, host) => {
             const files = await buildShareFiles(ids);
-            if (!files.length) { toast('공유할 사진을 준비하지 못했습니다'); return; }
+            if (!files.length) { toast('공유할 사진·동영상을 준비하지 못했습니다'); return; }
             const r = await tryShareFiles(files);
-            if (r.ok) { close(); finishSelection(n + '장을 공유했습니다'); return; }
+            if (r.ok) { close(); finishSelection(n + '개를 공유했습니다'); return; }
             if (r.err && r.err.name === 'AbortError') { toast('공유를 취소했습니다'); return; }
             if (r.err && (r.err.name === 'NotAllowedError' || r.err.name === 'SecurityError')) {
               showShareRetryPanel(host, files, close, n);
               return;
             }
             console.error(r.err);
-            toast('이 기기에서는 사진 공유를 쓸 수 없습니다');
+            toast('이 기기에서는 공유를 쓸 수 없습니다');
           });
       }
 
@@ -2288,7 +2528,7 @@ function openExportSheet() {
 
       const note = document.createElement('div');
       note.className = 'exp-note';
-      note.textContent = 'zip 파일은 갤럭시 \'내 파일\' 앱에서 눌러 압축을 풀면 사진이 나옵니다.';
+      note.textContent = 'zip 파일은 갤럭시 \'내 파일\' 앱에서 눌러 압축을 풀면 사진·동영상이 나옵니다.';
       host.appendChild(note);
     },
     actions: [
@@ -2354,7 +2594,7 @@ async function onBackupPicked() {
     const n = await importData(data, bkey, salt, iterations, pin.length);
     sh.close();
     state.settings.autoLock = state.settings.autoLock;
-    toast(n + '장을 복원했습니다');
+    toast(n + '개를 복원했습니다');
   } catch (e) {
     console.error(e);
     sh.close();
@@ -2443,7 +2683,11 @@ async function importData(data, bkey, salt, iterations, pinLen) {
 /* ───────────── 자동 잠금 ───────────── */
 function initAutoLock() {
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) maybeAutoLock();
+    if (document.hidden) {
+      const v = $('#vwVideo');
+      if (v) { try { v.pause(); } catch (e) {} }
+      maybeAutoLock();
+    }
   });
   window.addEventListener('pagehide', () => { maybeAutoLock(); });
   // 파일 선택창에서 돌아오면 보류를 풀어 준다(선택 중 잠기는 것을 막기 위한 짧은 유예)
@@ -2492,7 +2736,7 @@ function wire() {
     const ids = Array.from(state.selected);
     if (!ids.length) return;
     if (ids.length === 1) {
-      // 1장: 뷰어 내보내기처럼 실제 이미지 파일을 바로 저장
+      // 1개: 뷰어 내보내기처럼 실제 원본 파일을 바로 저장
       const it = state.items.find(i => i.id === ids[0]);
       if (!it) return;
       await downloadItem(it);
@@ -2655,6 +2899,20 @@ window.__svault = {
   itemCount: () => state.items.length,
   folderNames: () => state.folders.map(f => f.name),
   view: () => state.view,
+  items: () => state.items.map(i => ({
+    id: i.id, name: i.meta.name, type: i.meta.type, size: i.meta.size,
+    kind: itemKind(i), duration: i.meta.duration || 0, folderId: i.meta.folderId || null, fav: !!i.meta.fav
+  })),
+  addFiles: (files, folderId) => addFiles(files, folderId === undefined ? null : folderId),
+  openViewer: (id) => openViewer(id),
+  step: (d) => viewerStep(d),
+  closeViewer: (silent) => closeViewer(silent),
+  lock: (silent) => lockVault(silent !== false),
+  viewer: () => ({
+    id: state.viewerItemId, kind: state.viewerKind,
+    imgUrl: state.viewerUrl, videoUrl: state.viewerVideoUrl,
+    videoSrc: ($('#vwVideo') || {}).src || ''
+  }),
   snap: () => ({
     unlocked: !!state.key, items: state.items.length, folders: state.folders.length,
     view: state.view, folderId: state.folderId, selecting: state.selecting,
