@@ -70,6 +70,34 @@
   .btn-mini.primary{background:var(--mint);border-color:var(--mint);color:#fff}
   .btn-mini:active{transform:scale(.97)}
   .summary{margin:5px 0 0;font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  /* ---------- 실시간 연동 상태 바 ---------- */
+  .syncbar{display:flex;align-items:center;gap:8px;margin-top:7px}
+  .sync-state{
+    display:inline-flex;align-items:center;gap:6px;min-width:0;
+    font-size:12px;font-weight:700;color:var(--muted);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .sync-state .dot{flex:0 0 auto;width:7px;height:7px;border-radius:50%;background:#B9C6C1}
+  .sync-state.is-ok{color:var(--mint-deep)}
+  .sync-state.is-ok .dot{background:var(--mint)}
+  .sync-state.is-loading{color:var(--blue)}
+  .sync-state.is-loading .dot{background:var(--blue);animation:syncPulse 1s ease-in-out infinite}
+  .sync-state.is-error{color:var(--amber)}
+  .sync-state.is-error .dot{background:var(--amber)}
+  .sync-btn{
+    margin-left:auto;flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;
+    min-height:34px;padding:0 13px;border-radius:999px;
+    border:1px solid var(--mint-line);background:var(--mint-soft);color:var(--mint-deep);
+    font-size:12.5px;font-weight:800;white-space:nowrap;box-shadow:var(--shadow);
+  }
+  .sync-btn:active{transform:scale(.97)}
+  .sync-btn[disabled]{opacity:.62}
+  .sync-btn .ico{display:inline-block;font-size:14px;line-height:1}
+  .sync-btn.is-loading .ico{animation:syncSpin .9s linear infinite}
+  @keyframes syncSpin{to{transform:rotate(360deg)}}
+  @keyframes syncPulse{0%,100%{opacity:1}50%{opacity:.25}}
+  .manual-hint{margin:7px 0 0;font-size:11.5px;color:var(--muted);line-height:1.4}
   .filters{margin-top:7px;display:flex;flex-direction:column;gap:8px}
   .chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:2px}
   .chips::-webkit-scrollbar{display:none}
@@ -388,6 +416,10 @@
         </div>
       </div>
       <p id="summaryText" class="summary">불러오는 중…</p>
+      <div class="syncbar">
+        <span id="syncState" class="sync-state" role="status" aria-live="polite"><span class="dot" aria-hidden="true"></span><span id="syncText">실시간 연동</span></span>
+        <button id="syncBtn" class="sync-btn" type="button" aria-label="하다 실제 점검 횟수 새로고침"><span class="ico" aria-hidden="true">↻</span><span>동기화</span></button>
+      </div>
       <div class="filters">
         <input id="searchInput" class="search" type="search" placeholder="위치 이름 검색 (예: 주차빌딩 3층)" autocomplete="off" />
       </div>
@@ -411,6 +443,7 @@
       <div class="d-nav">
         <button id="dBack" class="nav-btn" type="button">← 목록</button>
         <div class="d-actions">
+          <button id="dSync" class="btn-mini" type="button">↻ 동기화</button>
           <button id="dEdit" class="btn-mini" type="button">수정</button>
         </div>
       </div>
@@ -435,9 +468,10 @@
     </div>
 
     <div class="action-row">
-      <button id="dCheckBtn" class="btn-primary" type="button">✓ 점검하기</button>
+      <button id="dCheckBtn" class="btn-primary" type="button">✓ 직접 기록</button>
       <button id="dIssueBtn" class="btn-ghost" type="button">이슈 등록</button>
     </div>
+    <p class="manual-hint">HADA 실제 횟수는 <b>↻ 동기화</b>로 자동으로 맞춰져요. 직접 기록은 연동이 안 될 때 쓰는 보조 기록입니다.</p>
 
     <div id="issueForm" class="issue-form" hidden>
       <h3>이슈 등록</h3>
@@ -587,6 +621,13 @@
 
   var STORAGE_KEY = 'hada-checklist-v1';
   var GAUGE_LEN = Math.PI * 78;
+
+  /* 실시간 연동: hada-sync Worker (HADA 익명 조회 중계). 비어 있으면 연동 꺼짐. */
+  var SYNC_URL = (typeof window !== 'undefined' && typeof window.HADA_SYNC_URL === 'string')
+    ? window.HADA_SYNC_URL
+    : 'https://hada-sync.kjsje4974.workers.dev/sync';
+  var SYNC_KEY = STORAGE_KEY + '-sync-v1';
+  var SYNC_MIN_GAP = 20000; /* 자동 동기화 최소 간격(ms) */
 
   /* 기본 위치: 새 기본 위치가 추가돼도 기존 기록을 덮어쓰지 않고
      겹치지 않는 항목만 자동으로 병합된다. 사용자가 지운 기본 위치는
@@ -883,6 +924,12 @@
   var lastRenderedDay = todayKey();
   var midnightTimer = null;
 
+  /* 실시간 연동 상태 */
+  var syncData = null;        /* { date, at, values: { [locId]: {checkedCount, assignedCount, completeRate, checkState} } } */
+  var syncBusy = false;
+  var syncLastAt = 0;
+  var syncUiState = 'idle';
+
   /* ---------------- helpers ---------------- */
   function $(id) { return document.getElementById(id); }
   function pad2(n) { return (n < 10 ? '0' : '') + n; }
@@ -1078,6 +1125,170 @@
     return loc.checks.filter(function (c) { return dateKeyOf(new Date(c.ts)) === key; });
   }
 
+  /* ---------------- 실시간 연동 (HADA 실제 횟수) ---------------- */
+  function targetIdOf(url) {
+    var m = /[?&]targetId=([0-9a-zA-Z][0-9a-zA-Z-]{7,63})/.exec(String(url || ''));
+    return m ? m[1] : '';
+  }
+
+  function loadSyncStore() {
+    var out = { date: '', at: 0, values: {} };
+    try {
+      var raw = localStorage.getItem(SYNC_KEY);
+      if (!raw) { return out; }
+      var j = JSON.parse(raw);
+      if (!j || typeof j !== 'object') { return out; }
+      out.date = typeof j.date === 'string' ? j.date : '';
+      out.at = typeof j.at === 'number' ? j.at : 0;
+      if (j.values && typeof j.values === 'object') { out.values = j.values; }
+    } catch (e) { /* ignore */ }
+    return out;
+  }
+
+  function saveSyncStore() {
+    try { localStorage.setItem(SYNC_KEY, JSON.stringify(syncData)); } catch (e) { /* ignore */ }
+  }
+
+  /* 그 날짜에 동기화해 둔 HADA 실제 값(없으면 null) */
+  function syncValueFor(locId, key) {
+    if (!syncData || syncData.date !== key) { return null; }
+    var v = syncData.values[locId];
+    if (!v || typeof v.checkedCount !== 'number') { return null; }
+    return v;
+  }
+
+  /* 화면에 보여 줄 점검 횟수: HADA 실제 값이 있으면 그 값, 없으면 직접 기록 수 */
+  function countOn(loc, key) {
+    var v = syncValueFor(loc.id, key);
+    if (v) { return v.checkedCount; }
+    return checksOn(loc, key).length;
+  }
+
+  /* 칸 수(목표): HADA가 알려 준 assignedCount 우선 */
+  function targetOn(loc, key) {
+    var v = syncValueFor(loc.id, key);
+    if (v && v.assignedCount > 0) { return v.assignedCount; }
+    return loc.target;
+  }
+
+  function setSyncUI(st) {
+    syncUiState = st;
+    var box = $('syncState');
+    var txt = $('syncText');
+    var btn = $('syncBtn');
+    var dbtn = $('dSync');
+    if (box && txt) {
+      box.className = 'sync-state' + (st === 'ok' ? ' is-ok' : st === 'loading' ? ' is-loading' : st === 'error' ? ' is-error' : '');
+      var label = st === 'loading' ? '불러오는 중…' : st === 'error' ? '연동 끊김' : st === 'off' ? '실시간 연동 없음' : '실시간 연동';
+      if (st === 'ok') { label = '✓ ' + label; }
+      var when = ((st === 'ok' || st === 'error') && syncData && syncData.at) ? ' · ' + fmtClock(syncData.at) : '';
+      txt.textContent = label + when;
+    }
+    if (btn) {
+      btn.disabled = (st === 'loading');
+      btn.className = 'sync-btn' + (st === 'loading' ? ' is-loading' : '');
+      btn.setAttribute('aria-busy', st === 'loading' ? 'true' : 'false');
+    }
+    if (dbtn) {
+      dbtn.disabled = (st === 'loading');
+      dbtn.textContent = st === 'loading' ? '동기화 중…' : '↻ 동기화';
+    }
+  }
+
+  function doneCountToday() {
+    var today = todayKey();
+    var total = state.locations.length;
+    var done = 0;
+    state.locations.forEach(function (l) {
+      if (countOn(l, today) >= targetOn(l, today)) { done++; }
+    });
+    return done + '/' + total;
+  }
+
+  function rerenderAfterSync() {
+    if (!$('detailView').hidden) { renderDetail(); } else { renderHome(true); }
+  }
+
+  /* opts.force = 자동 간격 무시(버튼·자정), opts.silent = 토스트 없이 */
+  function syncNow(opts) {
+    opts = opts || {};
+    var force = !!opts.force;
+    if (syncBusy) { return; }
+    var now = Date.now();
+    if (!force && now - syncLastAt < SYNC_MIN_GAP) { return; }
+
+    var locs = state.locations.filter(function (l) { return targetIdOf(l.url); });
+    if (!SYNC_URL || SYNC_URL.indexOf('REPLACE-ME') !== -1 || !locs.length) {
+      setSyncUI('off');
+      if (!opts.silent) { toast('실시간 연동이 아직 연결되지 않았어요.'); }
+      return;
+    }
+
+    var ids = [];
+    var byTarget = {};
+    locs.forEach(function (l) {
+      var t = targetIdOf(l.url);
+      if (!byTarget[t]) { byTarget[t] = []; ids.push(t); }
+      if (byTarget[t].indexOf(l.id) === -1) { byTarget[t].push(l.id); }
+    });
+
+    syncBusy = true;
+    setSyncUI('loading');
+
+    var ctrl = null;
+    var timer = null;
+    try {
+      ctrl = new AbortController();
+      timer = setTimeout(function () { try { ctrl.abort(); } catch (e) { /* ignore */ } }, 15000);
+    } catch (e) { ctrl = null; }
+
+    fetch(SYNC_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetIds: ids, date: todayKey() }),
+      signal: ctrl ? ctrl.signal : undefined
+    }).then(function (res) {
+      return res.text().then(function (t) {
+        var j = null;
+        try { j = JSON.parse(t); } catch (e) { j = null; }
+        return { ok: res.ok, status: res.status, j: j };
+      });
+    }).then(function (r) {
+      var j = r.j;
+      if (!r.ok || !j || !j.ok || !j.results) { throw new Error('sync http ' + r.status); }
+      var date = typeof j.date === 'string' ? j.date : todayKey();
+      if (date !== todayKey()) { throw new Error('sync stale'); }
+      var values = {};
+      var got = 0;
+      Object.keys(j.results).forEach(function (tid) {
+        var raw = j.results[tid] || {};
+        (byTarget[tid] || []).forEach(function (lid) {
+          values[lid] = {
+            checkedCount: Number(raw.checkedCount) || 0,
+            assignedCount: Number(raw.assignedCount) || 0,
+            completeRate: Number(raw.completeRate) || 0,
+            checkState: typeof raw.checkState === 'string' ? raw.checkState : ''
+          };
+          got++;
+        });
+      });
+      if (!got) { throw new Error('sync empty'); }
+      syncData = { date: date, at: Date.now(), values: values };
+      saveSyncStore();
+      syncLastAt = Date.now();
+      setSyncUI('ok');
+      rerenderAfterSync();
+      if (!opts.silent) { toast('동기화 완료 · 오늘 ' + doneCountToday() + '곳'); }
+    }).catch(function () {
+      setSyncUI('error');
+      if (!opts.silent) { toast('동기화 실패 · 잠시 후 다시 눌러 주세요'); }
+    }).then(function () {
+      if (timer) { clearTimeout(timer); }
+      syncBusy = false;
+      if (syncUiState === 'loading') { setSyncUI('idle'); }
+    });
+  }
+
   function openIssues(loc) {
     return loc.issues.filter(function (i) { return !i.resolved; });
   }
@@ -1119,9 +1330,9 @@
     var done = 0;
     var count = 0;
     state.locations.forEach(function (l) {
-      var c = checksOn(l, today).length;
+      var c = countOn(l, today);
       count += c;
-      if (c >= l.target) { done++; }
+      if (c >= targetOn(l, today)) { done++; }
     });
     var d = new Date();
     var head = (d.getMonth() + 1) + '월 ' + d.getDate() + '일';
@@ -1195,7 +1406,7 @@
     var done = 0;
     var issues = 0;
     all.forEach(function (l) {
-      if (checksOn(l, today).length >= l.target) { done++; }
+      if (countOn(l, today) >= targetOn(l, today)) { done++; }
       issues += openIssues(l).length;
     });
     return { done: done, total: all.length, issues: issues };
@@ -1304,8 +1515,9 @@
   }
 
   function makeLocationCard(loc, today) {
-    var count = checksOn(loc, today).length;
-    var pct = loc.target > 0 ? Math.round((count / loc.target) * 100) : 0;
+    var count = countOn(loc, today);
+    var tgt = targetOn(loc, today);
+    var pct = tgt > 0 ? Math.round((count / tgt) * 100) : 0;
     var width = Math.min(pct, 100);
     var issues = openIssues(loc).length;
     var st = roundClass(count);
@@ -1349,8 +1561,8 @@
     /* 2줄: 회차 칸(1회 파랑·2회 초록…) + 오늘 횟수 + 마지막 점검 */
     var row2 = document.createElement('div');
     row2.className = 'loc-row loc-row-prog';
-    if (loc.target >= 1 && loc.target <= 12) {
-      row2.appendChild(makeSteps(count, loc.target));
+    if (tgt >= 1 && tgt <= 12) {
+      row2.appendChild(makeSteps(count, tgt));
     } else {
       var bar = document.createElement('div');
       bar.className = 'bar';
@@ -1362,7 +1574,7 @@
     }
     var num = document.createElement('span');
     num.className = 'bar-num' + (st ? ' ' + st : '');
-    num.textContent = count + '/' + loc.target + ' · ' + pct + '%';
+    num.textContent = count + '/' + tgt + ' · ' + pct + '%';
     row2.appendChild(num);
     var ago = agoShort(lastCheck(loc));
     if (ago) {
@@ -1383,10 +1595,10 @@
     var done = 0;
     var issues = 0;
     allLocs.forEach(function (l) {
-      var c = checksOn(l, today).length;
+      var c = countOn(l, today);
       checks += c;
-      targetSum += l.target;
-      if (c >= l.target) { done++; }
+      targetSum += targetOn(l, today);
+      if (c >= targetOn(l, today)) { done++; }
       issues += openIssues(l).length;
     });
     var pct = targetSum > 0 ? Math.round((checks / targetSum) * 100) : 0;
@@ -1553,14 +1765,17 @@
       link.removeAttribute('href');
     }
 
+    var sv = syncValueFor(loc.id, key);
+    var n = countOn(loc, key);
+    var tgt = targetOn(loc, key);
+
     $('dChecklistTitle').textContent = loc.checklistTitle;
-    $('dTargetTag').textContent = String(loc.target);
-    $('dTodayTag').textContent = String(checksOn(loc, todayKey()).length);
+    $('dTargetTag').textContent = String(tgt);
+    $('dTodayTag').textContent = String(countOn(loc, todayKey()));
 
     var dayChecks = checksOn(loc, key).slice().sort(function (a, b) { return b.ts - a.ts; });
-    var n = dayChecks.length;
-    var pct = loc.target > 0 ? Math.round((n / loc.target) * 100) : 0;
-    var frac = loc.target > 0 ? Math.min(n / loc.target, 1) : 0;
+    var pct = tgt > 0 ? Math.round((n / tgt) * 100) : 0;
+    var frac = tgt > 0 ? Math.min(n / tgt, 1) : 0;
 
     var arc = $('gArc');
     arc.setAttribute('stroke-dasharray', GAUGE_LEN + ' ' + GAUGE_LEN);
@@ -1571,18 +1786,25 @@
     arc.setAttribute('class', 'g-arc' + (rst ? ' ' + rst : ''));
     $('gPct').className = 'g-pct' + (rst ? ' ' + rst : '');
     $('gStat').className = 'g-stat' + (rst ? ' ' + rst : '');
-    fillSteps($('gSteps'), n, loc.target, true);
+    fillSteps($('gSteps'), n, tgt, true);
 
     $('gPct').textContent = pct + '%';
     $('gStat').textContent = n + '회 점검했어요.';
-    $('gScaleRight').textContent = '목표 ' + loc.target + '회';
-    $('gElapsed').textContent = n ? elapsedText(dayChecks[0].ts) : '아직 점검 기록이 없어요.';
+    $('gScaleRight').textContent = '목표 ' + tgt + '회';
+    if (dayChecks.length) {
+      $('gElapsed').textContent = elapsedText(dayChecks[0].ts);
+    } else if (sv) {
+      $('gElapsed').textContent = 'HADA에서 불러온 실제 횟수 · ' + fmtClock(syncData.at) + ' 동기화';
+    } else {
+      $('gElapsed').textContent = '아직 점검 기록이 없어요.';
+    }
 
     $('dDateLabel').textContent = fmtDot(key);
     $('dNext').disabled = (key >= todayKey());
 
     $('dCheckCount').textContent = String(n);
     var tl = $('dTimeline');
+    $('dTimelineEmpty').textContent = sv ? '직접 남긴 기록이 없어요. 위 숫자는 HADA 실시간 값이에요.' : '이 날짜에는 점검 기록이 없어요.';
     tl.textContent = '';
     if (!n) {
       $('dTimelineEmpty').hidden = false;
@@ -1705,6 +1927,11 @@
     var prevDay = lastRenderedDay;
     lastRenderedDay = day;
 
+    /* 날짜가 바뀌면 어제 값은 버리고 0부터 새로 동기화한다. */
+    syncData = { date: '', at: 0, values: {} };
+    saveSyncStore();
+    syncLastAt = 0;
+
     var onDetail = !$('detailView').hidden;
     if (onDetail && ui.date === prevDay) {
       /* 이전 '오늘'을 보고 있었다면 새 '오늘'로 따라 이동 */
@@ -1719,6 +1946,7 @@
       }
     }
     if (onDetail) { renderDetail(); } else { renderHome(true); }
+    syncNow({ force: true, silent: true });
     return true;
   }
 
@@ -2102,15 +2330,7 @@
       var id = card.getAttribute('data-id');
       var act = t.getAttribute ? t.getAttribute('data-act') : null;
       if (act === 'open') {
-        /* 하다 열기: 새 탭으로 여는 동시에 오늘 점검 1회 자동 기록 */
-        var openLoc = findLocation(id);
-        if (openLoc) {
-          setTimeout(function () {
-            addCheck(openLoc);
-            renderHome(true);
-            toast('하다 열기 · 점검 1회 기록');
-          }, 0);
-        }
+        /* 하다 열기: 새 탭만 연다. 횟수는 HADA에서 하고 돌아오면 자동으로 맞춰진다. */
         return;
       }
       goDetail(id, null);
@@ -2127,17 +2347,8 @@
     });
 
     $('dBack').addEventListener('click', function () { location.hash = '#/'; });
-    $('dOpenLink').addEventListener('click', function () {
-      /* 상세의 하다 원본 열기: 새 탭으로 열고 오늘 점검 1회 자동 기록 */
-      var loc = currentLoc();
-      if (!loc) { return; }
-      setTimeout(function () {
-        addCheck(loc);
-        if (ui.date !== todayKey()) { ui.date = todayKey(); goDetail(loc.id, null); }
-        else { renderDetail(); }
-        toast('하다 열기 · 점검 1회 기록');
-      }, 0);
-    });
+    /* 상세의 하다 원본 열기: 새 탭만 연다. 돌아오면 자동 동기화된다. */
+    $('dSync').addEventListener('click', function () { syncNow({ force: true }); });
     $('dEdit').addEventListener('click', function () {
       if (ui.currentId) { openEditor(ui.currentId); }
     });
@@ -2148,7 +2359,7 @@
       addCheck(loc);
       if (ui.date !== todayKey()) { ui.date = todayKey(); goDetail(loc.id, null); }
       else { renderDetail(); }
-      toast('점검 기록 완료 · ' + fmtClock(Date.now()));
+      toast('직접 기록 저장 · 동기화하면 HADA 실제 횟수로 맞춰져요');
     });
 
     $('dIssueBtn').addEventListener('click', function () {
@@ -2238,12 +2449,15 @@
 
     /* 앱을 켜 둔 채 자정을 넘기거나 백그라운드에서 다음 날 돌아올 때 */
     document.addEventListener('visibilitychange', function () {
-      if (!document.hidden) { checkDayRollover(); }
+      if (!document.hidden) { checkDayRollover(); syncNow(); }
     });
-    window.addEventListener('focus', function () { checkDayRollover(); });
-    window.addEventListener('pageshow', function () { checkDayRollover(); });
+    window.addEventListener('focus', function () { checkDayRollover(); syncNow(); });
+    window.addEventListener('pageshow', function () { checkDayRollover(); syncNow(); });
     setInterval(function () { checkDayRollover(); }, 30000);
     scheduleMidnightCheck();
+
+    /* ↻ 동기화: 누를 때마다 바로 새로 불러온다(간격 무시) */
+    $('syncBtn').addEventListener('click', function () { syncNow({ force: true }); });
 
     window.addEventListener('storage', function (ev) {
       if (ev.key !== STORAGE_KEY) { return; }
@@ -2257,11 +2471,15 @@
 
   /* ---------------- boot ---------------- */
   state = load();
+  syncData = loadSyncStore();
+  if (syncData.at) { syncLastAt = syncData.at; }
   bind();
   if (!location.hash || location.hash === '#' || location.hash === '#/') {
     renderHome(false);
   }
   route();
+  setSyncUI(syncData.at && syncData.date === todayKey() ? 'ok' : 'idle');
+  setTimeout(function () { syncNow({ silent: true }); }, 300);
 })();
 </script>
 </body>
